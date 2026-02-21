@@ -18,7 +18,7 @@ description: "欢迎来到终末地工业。
 "
 
 #the mod version
-version: 0.0.1
+version: 0.0.1-Beta
 
 #the minimum game build required to run this mod
 minGameVersion: 154
