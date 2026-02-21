@@ -50,11 +50,6 @@ public class Converger extends Block {
             if (facing == null) return false;
             
             int sourceDir = facing.relativeTo(tile.x, tile.y);
-            // 添加调试输出：sourceDir 赋值
-            System.out.println("sourceDir 改变 , rotation = " + rotation + " , sourceDir = " + sourceDir + " , nextInputDir = " + nextInputDir);
-            
-            // 修改点：将 rotation 加2再取余4后使用
-            int rotatedRotation = (rotation + 2) % 4;
             
             // 如果输入方向是输出方向，直接拒绝
             /*不管了，反正输出方向不会有输入，就算有也输出不出去
@@ -71,14 +66,9 @@ public class Converger extends Block {
             storedItem = item;
             items.add(item, 1);
             
-            // 物品输入时打印
-            System.out.println(item.localizedName + "输入, rotation = " + rotation + " , nextInputDir = " + nextInputDir);
-            
             // 设置下一个轮询方向（跳过输出方向）
             do {
                 nextInputDir = (nextInputDir + 1) % 4;
-                // 添加调试输出：nextInputDir 在 handleItem 中赋值
-                System.out.println("nextInputDir 改变 , rotation = " + rotation + " , nextInputDir = " + nextInputDir);
             // 修改点：将 rotation 加2再取余4后用于判断跳过输出方向
             } while (nextInputDir == ((rotation + 2) % 4));
             
@@ -92,15 +82,11 @@ public class Converger extends Block {
             // 有物品时：等待TICK_INTERVAL帧后尝试输出
             if (storedItem != null) {
                 if (timer >= TICK_INTERVAL) {
-                    // 修改点：将 rotation 加2再取余4后作为输出方向
                     int outputDir = rotation ;
                     Building out = nearby(outputDir);
                     
                     if (out != null && out.acceptItem(this, storedItem)) {
-                        Item outputItem = storedItem; // 保存引用以便打印
                         out.handleItem(this, storedItem);
-                        // 物品输出时打印
-                        System.out.println(outputItem.localizedName + "输出");
                         storedItem = null;
                         items.clear();
                         canAccept = true;  // 输出后允许接受新物品
@@ -117,14 +103,10 @@ public class Converger extends Block {
                 boolean hasInput = currentDirBuilding != null && 
                                   currentDirBuilding.acceptItem(this, null); // 伪检查
                 
-                // 修改点：将 rotation 加2再取余4后用于判断是否当前方向是输出方向
                 if (nextInputDir == ((rotation + 2) % 4) || !hasInput) {
                     // 确保跳过输出方向
                     do {
                         nextInputDir = (nextInputDir + 1) % 4;
-                        // 添加调试输出：nextInputDir 在 updateTile 中赋值（无物品且切换）
-                        System.out.println("nextInputDir 改变 , rotation = " + rotation + " , nextInputDir = " + nextInputDir);
-                    // 修改点：将 rotation 加2再取余4后用于跳过输出方向
                     } while (nextInputDir == ((rotation + 2) % 4));
                     
                     canAccept = true;  // 允许接受新物品
@@ -154,8 +136,6 @@ public class Converger extends Block {
         public void read(Reads read, byte revision) {
             super.read(read, revision);
             nextInputDir = read.i();
-            // 添加调试输出：nextInputDir 从存档读取后赋值
-            System.out.println("nextInputDir 改变 (from read) , rotation = " + rotation + " , nextInputDir = " + nextInputDir);
             int id = read.s();
             storedItem = id == -1 ? null : Vars.content.item(id);
             timer = read.i();
