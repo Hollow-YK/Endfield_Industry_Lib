@@ -1,23 +1,29 @@
 #the mod name as displayed in-game
-displayName: "Java Mod Template"
+displayName: "Endfield Industry Lib"
+subtitle: "终末地工业Lib"
 
 #the internal name of your mod
-name: "example-java-mod"
+name: "endfield-industry-lib"
 
 #your name
-author: "You"
+author: "Hollow"
 
 #the fully qualified main class of the mod
-main: "example.ExampleJavaMod"
+main: "endfieldindustrylib.Lib"
 
 #the mod description as seen in the mod dialog
-description: "A Mindustry Java mod template."
+description: "欢迎来到终末地工业。
+[green]开发中……
+[red]别急着期待
+"
 
 #the mod version
-version: 1.0
+version: 0.0.1
 
 #the minimum game build required to run this mod
 minGameVersion: 154
 
 #this is a java mod
 java: true
+
+repo: "Hollow-YK/Endfield_Industry_Lib"
