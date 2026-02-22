@@ -68,9 +68,47 @@ public class GenericAICBasicFacility extends Block {
         rotate = true;
     }
 
-    @Override public void setStats() {
+    @Override
+    public void setStats() {
         super.setStats();
-        if (recipes.length > 0) stats.add(Stat.output, StatValues.items(recipes[0].output));
+        if (recipes.length > 0) {
+            // 使用 productionTime 作为标题，内部构建一个表格展示所有配方
+            stats.add(Stat.productionTime, table -> {
+                table.table(recipesTable -> {
+                    for (int i = 0; i < recipes.length; i++) {
+                        Recipe r = recipes[i];
+                        if (i > 0) recipesTable.row(); // 配方之间添加分隔
+
+                        recipesTable.table(line -> {
+                            // 输入物品：将 r.input 转换为 GridItemsDisplay.Slot 数组
+                            GridItemsDisplay.Slot[] inputSlots = new GridItemsDisplay.Slot[r.input.length];
+                            for (int j = 0; j < r.input.length; j++) {
+                                ItemStack stack = r.input[j];
+                                inputSlots[j] = new GridItemsDisplay.Slot(stack.item, stack.amount);
+                            }
+                            GridItemsDisplay inputDisplay = new GridItemsDisplay(2); // 2列显示
+                            inputDisplay.rebuild(inputSlots);
+                            line.add(inputDisplay).left();
+
+                            line.add(" -> "); // 箭头表示转化
+
+                            // 输出物品
+                            GridItemsDisplay.Slot[] outputSlots = new GridItemsDisplay.Slot[r.output.length];
+                            for (int j = 0; j < r.output.length; j++) {
+                                ItemStack stack = r.output[j];
+                                outputSlots[j] = new GridItemsDisplay.Slot(stack.item, stack.amount);
+                            }
+                            GridItemsDisplay outputDisplay = new GridItemsDisplay(2);
+                            outputDisplay.rebuild(outputSlots);
+                            line.add(outputDisplay).left();
+
+                            // 制造时间（以秒为单位）
+                            line.add("  " + (r.craftTime / 60f) + " " + StatUnit.seconds.localized());
+                        }).pad(4);
+                    }
+                }).pad(4).left();
+            });
+        }
     }
 
     @Override public void setBars() {
