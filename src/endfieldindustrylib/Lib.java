@@ -1,5 +1,6 @@
 package endfieldindustrylib;
 
+import endfieldindustrylib.AICBasicFacility.AICBasicFacility;
 import endfieldindustrylib.AICTransport.*;
 import endfieldindustrylib.Items.Ore;
 import endfieldindustrylib.Items.Plants;
@@ -13,9 +14,6 @@ import endfieldindustrylib.Items.Bottle;
 public class Lib extends mindustry.mod.Mod {
     @Override
     public void loadContent() {
-
-        // block
-        AICTransport.load();// 物流
         
         // item
         Ore.load();// 矿物
@@ -26,5 +24,9 @@ public class Lib extends mindustry.mod.Mod {
         Parts.load();// 零件
         Components.load();  // 装备原件
         Bottle.load();// 瓶子
+
+        // block
+        AICTransport.load();// 物流
+        AICBasicFacility.load();// 工厂
     }
 }
