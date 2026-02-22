@@ -2,10 +2,8 @@ package endfieldindustrylib.AICBasicFacility;
 
 import arc.Core;
 import arc.math.*;
-import arc.math.geom.Geometry;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
-import arc.util.Log;
 import arc.util.io.*;
 import mindustry.gen.*;
 import mindustry.type.*;
@@ -112,11 +110,15 @@ public class GenericAICBasicFacility extends Block {
         public Recipe currentRecipe;
         public int currentRecipeIndex = -1;
 
+        // 轮询索引：每个输出槽上次输出到的相邻建筑在proximity中的位置
+        private int[] lastOutputIndex;
+
         public GenericAICBasicFacilityBuild() {
             inputSlots = new Slot[inputSlotDefs.length];
             for (int i = 0; i < inputSlotDefs.length; i++) inputSlots[i] = new Slot(inputSlotDefs[i].item);
             outputSlots = new Slot[outputSlotDefs.length];
             for (int i = 0; i < outputSlotDefs.length; i++) outputSlots[i] = new Slot(outputSlotDefs[i].item);
+            lastOutputIndex = new int[outputSlotDefs.length];
         }
 
         public class Slot {
@@ -160,7 +162,6 @@ public class GenericAICBasicFacility extends Block {
 
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
         private boolean isAllowedTransport(Building other) {
-            Log.info("other class: " + other.getClass().getName());
             return other instanceof TransportBelt.TransportBeltBuild ||
                    other instanceof ItemControlPort.ItemControlPortBuild ||
                    other instanceof Splitter.SplitterBuild ||
@@ -226,81 +227,59 @@ public class GenericAICBasicFacility extends Block {
             return edelta() * efficiency / baseTime;
         }
 
-public void dumpOutputs() {
-    if (!timer(timerDump, dumpTime / timeScale)) return;
-    Log.info("dumpOutputs start, progress=" + progress);
-    
-    int size = block.size;
-    int offset = size / 2; // 中心到边界的距离
-    int centerX = tileX();   // 中心格 X
-    int centerY = tileY();   // 中心格 Y
-    int minX = centerX - offset;
-    int maxX = centerX + offset;
-    int minY = centerY - offset;
-    int maxY = centerY + offset;
-    
-    // 旋转映射：rotation=0(右) -> 世界方向1(东), 1(上) -> 0(北), 2(左) -> 3(西), 3(下) -> 2(南)
-    int[] rotToWorld = {1, 0, 3, 2};
-    
-    for (Slot slot : outputSlots) {
-        if (slot.amount <= 0 || slot.currentItem == null) continue;
-        Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
-        Log.info(" attempting to output item: " + item + " amount=" + slot.amount);
-        
-        for (int dir = 0; dir < 4; dir++) {
-            if ((outputFacingMask & (1 << dir)) == 0) continue;
-            
-            int faceWorld = rotToWorld[rotation];
-            int worldDir = (faceWorld + dir) % 4;
-            
-            // 根据世界方向确定要检查的外部格子范围
-            int checkStartX, checkStartY, checkEndX, checkEndY, stepX, stepY;
-            if (worldDir == 0) { // 北
-                checkStartX = minX; checkEndX = maxX; stepX = 1;
-                checkStartY = maxY + 1; checkEndY = maxY + 1; stepY = 0;
-            } else if (worldDir == 1) { // 东
-                checkStartX = maxX + 1; checkEndX = maxX + 1; stepX = 0;
-                checkStartY = minY; checkEndY = maxY; stepY = 1;
-            } else if (worldDir == 2) { // 南
-                checkStartX = minX; checkEndX = maxX; stepX = 1;
-                checkStartY = minY - 1; checkEndY = minY - 1; stepY = 0;
-            } else { // 西
-                checkStartX = minX - 1; checkEndX = minX - 1; stepX = 0;
-                checkStartY = minY; checkEndY = maxY; stepY = 1;
+        /**
+         * 公平轮询输出：每个输出槽在计时器允许时，尽可能将槽内物品分发给相邻可接受建筑。
+         * 使用 lastOutputIndex 记录每个槽上次输出的建筑索引，实现轮询公平性。
+         */
+        public void dumpOutputs() {
+            if (!timer(timerDump, dumpTime / timeScale)) return;
+
+            // 确保 lastOutputIndex 长度与当前输出槽一致（防止配置变更）
+            if (lastOutputIndex.length != outputSlots.length) {
+                lastOutputIndex = new int[outputSlots.length];
             }
-            
-            for (int x = checkStartX; x <= checkEndX; x += stepX) {
-                for (int y = checkStartY; y <= checkEndY; y += stepY) {
-                    Log.info("    checking target (" + x + "," + y + ")");
-                    Tile targetTile = Vars.world.tile(x, y);
-                    if (targetTile == null) {
-                        Log.info("        tile out of bounds");
-                        continue;
+
+            // 获取相邻建筑列表并转为数组（便于按索引访问）
+            Building[] neighbors = proximity.toArray(Building.class);
+            int n = neighbors.length;
+            if (n == 0) return;
+
+            for (int slotIdx = 0; slotIdx < outputSlots.length; slotIdx++) {
+                Slot slot = outputSlots[slotIdx];
+                if (slot.amount <= 0 || slot.currentItem == null) continue;
+                Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
+
+                int startIdx = lastOutputIndex[slotIdx] % n; // 从上一次的位置开始
+
+                // 当前 tick 内尽可能输出该槽位的所有物品
+                while (slot.amount > 0) {
+                    boolean found = false;
+                    for (int i = 0; i < n; i++) {
+                        int idx = (startIdx + i) % n;
+                        Building other = neighbors[idx];
+                        if (other == null || other.team != team) continue;
+
+                        // 方向检查（相对于建筑朝向）
+                        int worldDir = relativeTo(other);
+                        int localDir = (worldDir - rotation + 4) % 4;
+                        if ((outputFacingMask & (1 << localDir)) == 0) continue;
+
+                        if (!isAllowedTransport(other)) continue;
+
+                        if (other.acceptItem(this, item)) {
+                            other.handleItem(this, item);
+                            slot.remove(1);
+                            // 更新下次起始位置为当前建筑的下一个
+                            lastOutputIndex[slotIdx] = (idx + 1) % n;
+                            startIdx = lastOutputIndex[slotIdx]; // 更新 startIdx 以便继续
+                            found = true;
+                            break; // 输出成功，继续尝试下一个物品
+                        }
                     }
-                    Building other = targetTile.build;
-                    if (other == null) {
-                        Log.info("        no building");
-                        continue;
-                    }
-                    Log.info("        other tile: (" + other.tileX() + "," + other.tileY() + "), block=" + other.block);
-                    if (!isAllowedTransport(other)) {
-                        Log.info("        other not allowed (temporarily allowing all)");
-                        continue; // 恢复限制后应跳过不允许的方块
-                    }
-                    boolean canAccept = other.acceptItem(this, item);
-                    Log.info("        acceptItem=" + canAccept);
-                    if (canAccept) {
-                        other.handleItem(this, item);
-                        slot.remove(1);
-                        Log.info("    transferred 1 " + item + " to " + other + " at (" + x + "," + y + ")");
-                        return; // 每次只输出一个物品
-                    }
+                    if (!found) break; // 没有建筑可接受，退出循环
                 }
             }
         }
-    }
-    Log.info("dumpOutputs end");
-}
 
         private int findAcceptableInputSlot(Item item) {
             IntSeq candidates = new IntSeq();
@@ -373,6 +352,10 @@ public void dumpOutputs() {
         @Override public float progress() { return progress; }
         @Override public float totalProgress() { return progress; }
 
+        @Override public byte version() {
+            return 1; // 增加版本号以支持 lastOutputIndex
+        }
+
         @Override public void write(Writes write) {
             super.write(write);
             write.f(progress); write.f(warmup); write.i(currentRecipeIndex);
@@ -387,6 +370,11 @@ public void dumpOutputs() {
                 if (s.fixedType == null) {
                     write.s(s.currentItem == null ? -1 : s.currentItem.id);
                 }
+            }
+            // 写入 lastOutputIndex
+            write.i(lastOutputIndex.length);
+            for (int idx : lastOutputIndex) {
+                write.i(idx);
             }
         }
 
@@ -407,6 +395,16 @@ public void dumpOutputs() {
                     int id = read.s();
                     s.currentItem = id == -1 ? null : Vars.content.item(id);
                 }
+            }
+            if (revision >= 1) {
+                int len = read.i();
+                lastOutputIndex = new int[len];
+                for (int i = 0; i < len; i++) {
+                    lastOutputIndex[i] = read.i();
+                }
+            } else {
+                // 旧版本存档，初始化为新数组
+                lastOutputIndex = new int[outputSlots.length];
             }
         }
     }
