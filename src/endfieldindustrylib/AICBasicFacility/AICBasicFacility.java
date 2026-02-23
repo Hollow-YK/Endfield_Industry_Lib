@@ -17,5 +17,11 @@ public class AICBasicFacility {
         //new SeparatingUnit("separating-unit").load();         //拆解机
         //new ReactorCrucible("reactor-crucible").load();       //反应池
         //new ForgeoftheSky("forge-of-the-sky").load();         //天有洪炉
+        //电力供应
+        //new RelayTower("relay-tower").load();                 //中继器
+        //new ElectricPylon("electric-pylon").load();           //供电桩
+        //new ThermalBank("thermal-bank").load();               //热能池
+        //new XiraniteRelay("xiranite-relay").load();           //息壤中继器
+        //new XiranitePylon("xiranite-pylon").load();           //息壤供电桩
     }
 }
