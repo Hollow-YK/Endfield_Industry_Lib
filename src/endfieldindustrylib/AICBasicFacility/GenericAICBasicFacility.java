@@ -1,7 +1,10 @@
 package endfieldindustrylib.AICBasicFacility;
 
 import arc.Core;
+import arc.graphics.Color;
 import arc.math.*;
+import arc.scene.style.TextureRegionDrawable;
+import arc.scene.ui.Label;
 import arc.scene.ui.layout.*;
 import arc.struct.*;
 import arc.util.io.*;
@@ -21,6 +24,8 @@ import endfieldindustrylib.AICTransport.Splitter;
 import endfieldindustrylib.AICTransport.BeltBridge;
 import endfieldindustrylib.AICTransport.Converger;
 
+import java.util.function.Consumer;
+
 /**
  * 通用多槽位工厂基类。
  * 支持：
@@ -39,6 +44,9 @@ public class GenericAICBasicFacility extends Block {
     public SlotDef[] inputSlotDefs = {};
     public SlotDef[] outputSlotDefs = {};
     public Recipe[] recipes = {};
+
+    // 静态回调，用于显示自定义配置面板（由 Mod 主类注册）
+    public static Consumer<GenericAICBasicFacilityBuild> showConfigHandler;
 
     public static class SlotDef {
         public Item item; // null 表示通用槽位
@@ -86,8 +94,8 @@ public class GenericAICBasicFacility extends Block {
                                 ItemStack stack = r.input[j];
                                 inputSlots[j] = new GridItemsDisplay.Slot(stack.item, stack.amount);
                             }
-                            GridItemsDisplay inputDisplay = new GridItemsDisplay(2); // 2列显示
-                            inputDisplay.rebuild(inputSlots);
+                            GridItemsDisplay inputDisplay = GridItemsDisplay.withFixedColumns(2);
+                            inputDisplay.setSlots(inputSlots);
                             line.add(inputDisplay).left();
 
                             line.add(" -> "); // 箭头表示转化
@@ -98,8 +106,8 @@ public class GenericAICBasicFacility extends Block {
                                 ItemStack stack = r.output[j];
                                 outputSlots[j] = new GridItemsDisplay.Slot(stack.item, stack.amount);
                             }
-                            GridItemsDisplay outputDisplay = new GridItemsDisplay(2);
-                            outputDisplay.rebuild(outputSlots);
+                            GridItemsDisplay outputDisplay = GridItemsDisplay.withFixedColumns(2);
+                            outputDisplay.setSlots(outputSlots);
                             line.add(outputDisplay).left();
 
                             // 制造时间（以秒为单位）
@@ -356,33 +364,78 @@ public class GenericAICBasicFacility extends Block {
             return findAcceptableInputSlot(item) != -1;
         }
 
+        // 浮动面板
+        @Override public void tapped() {
+            if (showConfigHandler != null) {
+                showConfigHandler.accept(this);
+            } else {
+                super.tapped();
+            }
+        }
+
+        // 浮动面板
         @Override public void buildConfiguration(Table table) {
-            table.table(main -> {
-                main.table(inTable -> {
-                    GridItemsDisplay.Slot[] inSlots = new GridItemsDisplay.Slot[inputSlots.length];
+            // 创建内部面板，用于统一设置背景
+            Table panel = new Table();
+            panel.setBackground(new TextureRegionDrawable(Core.atlas.white()).tint(new Color(0, 0, 0, 0.5f)));
+
+            // 主内容表格（输入、箭头、输出）
+            panel.table(main -> {
+                // 左侧输入槽位
+                Table inTable = new Table();
+                main.add(inTable).left();
+
+                // 间隔
+                //main.add().width(20);
+
+                // 箭头
+                Label arrowLabel = new Label("->");
+                arrowLabel.setColor(Pal.accent);
+                main.add(arrowLabel).pad(10);
+
+                // 右侧输出槽位
+                Table outTable = new Table();
+                main.add(outTable).right();
+
+                // 创建动态更新的 GridItemsDisplay（输入）
+                int columns = 2;
+                GridItemsDisplay inputDisplay = GridItemsDisplay.withMaxColumns(columns, () -> {
+                    GridItemsDisplay.Slot[] result = new GridItemsDisplay.Slot[inputSlots.length];
                     for (int i = 0; i < inputSlots.length; i++) {
-                        Item displayItem = inputSlots[i].fixedType != null ? inputSlots[i].fixedType : inputSlots[i].currentItem;
-                        inSlots[i] = new GridItemsDisplay.Slot(displayItem, inputSlots[i].amount);
+                        Slot slot = inputSlots[i];
+                        Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
+                        result[i] = new GridItemsDisplay.Slot(item, slot.amount);
                     }
-                    GridItemsDisplay inputDisplay = new GridItemsDisplay(2);
-                    inputDisplay.rebuild(inSlots);
-                    inTable.add(inputDisplay).left();
-                }).left();
-                main.add().width(20);
-                main.image(Core.atlas.white()).color(Pal.accent).size(20, 4).pad(10);
-                main.table(outTable -> {
-                    GridItemsDisplay.Slot[] outSlots = new GridItemsDisplay.Slot[outputSlots.length];
+                    return result;
+                });
+
+                // 创建动态更新的 GridItemsDisplay（输出）
+                GridItemsDisplay outputDisplay = GridItemsDisplay.withMaxColumns(columns, () -> {
+                    GridItemsDisplay.Slot[] result = new GridItemsDisplay.Slot[outputSlots.length];
                     for (int i = 0; i < outputSlots.length; i++) {
-                        Item displayItem = outputSlots[i].fixedType != null ? outputSlots[i].fixedType : outputSlots[i].currentItem;
-                        outSlots[i] = new GridItemsDisplay.Slot(displayItem, outputSlots[i].amount);
+                        Slot slot = outputSlots[i];
+                        Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
+                        result[i] = new GridItemsDisplay.Slot(item, slot.amount);
                     }
-                    GridItemsDisplay outputDisplay = new GridItemsDisplay(2);
-                    outputDisplay.rebuild(outSlots);
-                    outTable.add(outputDisplay).right();
-                }).right();
-            }).pad(10);
-            table.row();
-            table.add(new Bar("bar.progress", Pal.ammo, () -> progress)).size(200f, 18f).pad(4);
+                    return result;
+                });
+
+                // 让输入/输出显示组件填充剩余宽度，避免溢出
+                inTable.add(inputDisplay).growX().left();
+                outTable.add(outputDisplay).growX().right();
+            }).pad(10).growX();  // 主表格内边距并水平扩展
+
+            panel.row();
+
+            // 进度条：使用 growX() 使其宽度与面板一致，避免右侧空白
+            panel.add(new Bar("bar.progress", Pal.ammo, () -> progress))
+                .width(200f)
+                .height(18f)
+                .pad(4)
+                .center();
+
+            // 将面板添加到外部 table 并使其填充整个可用区域
+            table.add(panel).grow();
         }
 
         @Override public boolean shouldConsume() { return currentRecipe != null && canUseRecipe(currentRecipe); }
