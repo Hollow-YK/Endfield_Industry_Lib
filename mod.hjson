@@ -15,7 +15,7 @@ main: "endfieldindustrylib.Lib"
 description: "欢迎来到终末地工业。
 [[]green]开发中……
 [[]red]注意！该版本处于开发初期，存在大量Bug与未完成的部分。
-[[]green]欢迎前往GitHub提交PR
+[[]green]欢迎前往GitHub Release下载本模组
 [[]red]别急着期待
 "
 
