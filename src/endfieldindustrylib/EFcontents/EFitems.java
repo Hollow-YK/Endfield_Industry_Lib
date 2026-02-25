@@ -1,9 +1,9 @@
-package endfieldindustrylib.Items;
+package endfieldindustrylib.EFcontents;
 
 import arc.graphics.Color;
 import mindustry.type.Item;
 
-public class EFItems {
+public class EFitems {
     public static Item
             // 矿物
             originiumOre, amethystOre, ferriumOre,

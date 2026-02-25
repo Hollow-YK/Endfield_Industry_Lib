@@ -1,4 +1,4 @@
-package endfieldindustrylib.AICBasicFacility;
+package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
 
 import arc.Core;
 import arc.graphics.Color;
@@ -15,14 +15,12 @@ import mindustry.world.meta.*;
 import mindustry.graphics.*;
 import mindustry.ui.*;
 import mindustry.Vars;
+import endfieldindustrylib.EFworld.blocks.AICTransport.BeltBridge;
+import endfieldindustrylib.EFworld.blocks.AICTransport.Converger;
+import endfieldindustrylib.EFworld.blocks.AICTransport.ItemControlPort;
+import endfieldindustrylib.EFworld.blocks.AICTransport.Splitter;
+import endfieldindustrylib.EFworld.blocks.AICTransport.TransportBelt;
 import endfieldindustrylib.ui.GridItemsDisplay;
-
-// 导入自定义物流方块
-import endfieldindustrylib.AICTransport.TransportBelt;
-import endfieldindustrylib.AICTransport.ItemControlPort;
-import endfieldindustrylib.AICTransport.Splitter;
-import endfieldindustrylib.AICTransport.BeltBridge;
-import endfieldindustrylib.AICTransport.Converger;
 
 import java.util.function.Consumer;
 

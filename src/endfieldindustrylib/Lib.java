@@ -1,10 +1,9 @@
 package endfieldindustrylib;
 
 import arc.Core;
-import endfieldindustrylib.AICBasicFacility.AICBasicFacility;
-import endfieldindustrylib.AICBasicFacility.GenericAICBasicFacility;
-import endfieldindustrylib.AICTransport.AICTransport;
-import endfieldindustrylib.Items.EFItems;
+import endfieldindustrylib.EFcontents.EFblocks;
+import endfieldindustrylib.EFcontents.EFitems;
+import endfieldindustrylib.EFworld.blocks.AICBasicFacility.GenericAICBasicFacility;
 import endfieldindustrylib.ui.fragments.AICFacilityConfigFragment;
 
 public class Lib extends mindustry.mod.Mod {
@@ -13,11 +12,10 @@ public class Lib extends mindustry.mod.Mod {
     @Override
     public void loadContent() {
         // item
-        EFItems.load();
+        EFitems.load();
 
         // block
-        AICTransport.load();// 物流
-        AICBasicFacility.load();// 工厂
+        EFblocks.load();
     }
 
     @Override

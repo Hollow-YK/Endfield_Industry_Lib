@@ -1,4 +1,4 @@
-package endfieldindustrylib.AICTransport;
+package endfieldindustrylib.EFworld.blocks.AICTransport;
 
 import mindustry.type.Category;
 import mindustry.world.Block;

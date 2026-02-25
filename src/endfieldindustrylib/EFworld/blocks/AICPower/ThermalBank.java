@@ -1,14 +1,14 @@
-package endfieldindustrylib.AICBasicFacility;
+package endfieldindustrylib.EFworld.blocks.AICPower;
 
 import arc.struct.ObjectMap;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.Vars;
 import mindustry.gen.Building;
 import mindustry.type.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.consumers.ConsumeItemEfficiency;
-import endfieldindustrylib.Items.EFItems;
 
 public class ThermalBank extends ConsumeGenerator {
     // 物品 → 每秒发电量（用于计算每 tick 功率）
@@ -26,24 +26,24 @@ public class ThermalBank extends ConsumeGenerator {
         powerProduction = 0f;     // 基础功率设为 0，完全由 getPowerProduction 控制
         itemDuration = 2400f;    // 基础燃烧时间 40 秒（2400 ticks）
         // 建造需求（请确保物品已定义）
-        requirements(Category.power, ItemStack.with(EFItems.origocrust, 5, EFItems.amethystPart, 5));
+        requirements(Category.power, ItemStack.with(EFitems.origocrust, 5, EFitems.amethystPart, 5));
     }
 
     @Override
     public void init() {
         // 填充物品每秒发电量
-        powerPerSecond.put(EFItems.originiumOre, 50f);
-        powerPerSecond.put(EFItems.lcValleyBattery, 220f);
-        powerPerSecond.put(EFItems.scValleyBattery, 420f);
-        powerPerSecond.put(EFItems.hcValleyBattery, 1100f);
-        powerPerSecond.put(EFItems.lcWulingBattery, 1600f);
+        powerPerSecond.put(EFitems.originiumOre, 50f);
+        powerPerSecond.put(EFitems.lcValleyBattery, 220f);
+        powerPerSecond.put(EFitems.scValleyBattery, 420f);
+        powerPerSecond.put(EFitems.hcValleyBattery, 1100f);
+        powerPerSecond.put(EFitems.lcWulingBattery, 1600f);
 
         // 填充物品燃烧时长倍数（实际秒数 / 40）
-        timeMultiplierMap.put(EFItems.originiumOre, 0.2f);  // 8 / 40
-        timeMultiplierMap.put(EFItems.lcValleyBattery, 1f); // 40 / 40
-        timeMultiplierMap.put(EFItems.scValleyBattery, 1f);
-        timeMultiplierMap.put(EFItems.hcValleyBattery, 1f);
-        timeMultiplierMap.put(EFItems.lcWulingBattery, 1f);
+        timeMultiplierMap.put(EFitems.originiumOre, 0.2f);  // 8 / 40
+        timeMultiplierMap.put(EFitems.lcValleyBattery, 1f); // 40 / 40
+        timeMultiplierMap.put(EFitems.scValleyBattery, 1f);
+        timeMultiplierMap.put(EFitems.hcValleyBattery, 1f);
+        timeMultiplierMap.put(EFitems.lcWulingBattery, 1f);
 
         // 设置燃烧时长乘数（影响 generateTime 的递减速度）
         itemDurationMultipliers.clear();

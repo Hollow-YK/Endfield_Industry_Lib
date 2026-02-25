@@ -6,8 +6,8 @@ import arc.scene.*;
 import arc.scene.actions.*;
 import arc.scene.ui.layout.*;
 import arc.util.*;
+import endfieldindustrylib.EFworld.blocks.AICBasicFacility.GenericAICBasicFacility.*;
 import mindustry.game.EventType.*;
-import endfieldindustrylib.AICBasicFacility.GenericAICBasicFacility.*;
 
 import static mindustry.Vars.*;
 
