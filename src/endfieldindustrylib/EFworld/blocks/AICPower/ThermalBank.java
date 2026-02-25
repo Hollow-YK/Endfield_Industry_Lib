@@ -22,6 +22,7 @@ public class ThermalBank extends ConsumeGenerator {
         hasLiquids = false;      // 不涉及液体
         powerProduction = 16.66667f;     // 基础功率设为 0，完全由 getPowerProduction 控制
         itemDuration = 2400f;    // 基础燃烧时间 40 秒（2400 ticks）
+        itemDurationMultipliers.put(EFitems.originiumOre,0.2f);
         // 建造需求（请确保物品已定义）
         requirements(Category.power, ItemStack.with(EFitems.origocrust, 5, EFitems.amethystPart, 5));
         consume(new ConsumeItemCharged(0.05f));
