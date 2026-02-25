@@ -1,7 +1,17 @@
-package endfieldindustrylib.AICBasicFacility;
+package endfieldindustrylib.EFcontents;
 
-public class AICBasicFacility {
+import endfieldindustrylib.EFworld.blocks.AICBasicFacility.*;
+import endfieldindustrylib.EFworld.blocks.AICPower.*;
+import endfieldindustrylib.EFworld.blocks.AICTransport.*;
+
+public class EFblocks {
     public static void load() {
+        // 物流运输
+        new TransportBelt("transport-belt").load();      // 传送带
+        new ItemControlPort("item-control-port").load(); // 物品准入口
+        new Splitter("splitter").load();                 //
+        new BeltBridge("belt-bridge").load();            // 物流桥
+        new Converger("converger").load();               //
         // 基础生产
         new SeedPickingUnit("seed-picking-unit").load(); //采种机
         new PlantingUnit("planting-unit").load();        //种植机

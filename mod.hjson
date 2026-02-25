@@ -1,5 +1,6 @@
 #the mod name as displayed in-game
-displayName: "Endfield Industry Lib"
+displayName: "Endfield Industry Lib
+终末地工业Lib"
 subtitle: "终末地工业Lib"
 
 #the internal name of your mod
@@ -13,6 +14,7 @@ main: "endfieldindustrylib.Lib"
 
 #the mod description as seen in the mod dialog
 description: "欢迎来到终末地工业。
+[[]blue]《终末地工业Lib》是一款将《明日方舟：终末地》的部分物品与设备加入Mindustry的模组。
 [[]green]开发中……
 [[]red]注意！该版本处于开发初期，存在大量Bug与未完成的部分。
 [[]green]欢迎前往GitHub Release下载本模组
@@ -20,7 +22,7 @@ description: "欢迎来到终末地工业。
 "
 
 #the mod version
-version: 0.0.5-Beta
+version: 0.0.6-Beta
 
 #the minimum game build required to run this mod
 minGameVersion: 154

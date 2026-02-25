@@ -1,14 +1,17 @@
-package endfieldindustrylib.AICBasicFacility;
+package endfieldindustrylib.EFworld.blocks.AICPower;
 
 import arc.struct.ObjectMap;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.Vars;
 import mindustry.gen.Building;
 import mindustry.type.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.consumers.ConsumeItemEfficiency;
-import endfieldindustrylib.Items.EFItems;
+import mindustry.world.meta.Stat;
+import mindustry.world.meta.StatUnit;
+import endfieldindustrylib.ui.GridItemsDisplay;
 
 public class ThermalBank extends ConsumeGenerator {
     // 物品 → 每秒发电量（用于计算每 tick 功率）
@@ -26,24 +29,24 @@ public class ThermalBank extends ConsumeGenerator {
         powerProduction = 0f;     // 基础功率设为 0，完全由 getPowerProduction 控制
         itemDuration = 2400f;    // 基础燃烧时间 40 秒（2400 ticks）
         // 建造需求（请确保物品已定义）
-        requirements(Category.power, ItemStack.with(EFItems.origocrust, 5, EFItems.amethystPart, 5));
+        requirements(Category.power, ItemStack.with(EFitems.origocrust, 5, EFitems.amethystPart, 5));
     }
 
     @Override
     public void init() {
         // 填充物品每秒发电量
-        powerPerSecond.put(EFItems.originiumOre, 50f);
-        powerPerSecond.put(EFItems.lcValleyBattery, 220f);
-        powerPerSecond.put(EFItems.scValleyBattery, 420f);
-        powerPerSecond.put(EFItems.hcValleyBattery, 1100f);
-        powerPerSecond.put(EFItems.lcWulingBattery, 1600f);
+        powerPerSecond.put(EFitems.originiumOre, 50f);
+        powerPerSecond.put(EFitems.lcValleyBattery, 220f);
+        powerPerSecond.put(EFitems.scValleyBattery, 420f);
+        powerPerSecond.put(EFitems.hcValleyBattery, 1100f);
+        powerPerSecond.put(EFitems.lcWulingBattery, 1600f);
 
         // 填充物品燃烧时长倍数（实际秒数 / 40）
-        timeMultiplierMap.put(EFItems.originiumOre, 0.2f);  // 8 / 40
-        timeMultiplierMap.put(EFItems.lcValleyBattery, 1f); // 40 / 40
-        timeMultiplierMap.put(EFItems.scValleyBattery, 1f);
-        timeMultiplierMap.put(EFItems.hcValleyBattery, 1f);
-        timeMultiplierMap.put(EFItems.lcWulingBattery, 1f);
+        timeMultiplierMap.put(EFitems.originiumOre, 0.2f);  // 8 / 40
+        timeMultiplierMap.put(EFitems.lcValleyBattery, 1f); // 40 / 40
+        timeMultiplierMap.put(EFitems.scValleyBattery, 1f);
+        timeMultiplierMap.put(EFitems.hcValleyBattery, 1f);
+        timeMultiplierMap.put(EFitems.lcWulingBattery, 1f);
 
         // 设置燃烧时长乘数（影响 generateTime 的递减速度）
         itemDurationMultipliers.clear();
@@ -55,6 +58,39 @@ public class ThermalBank extends ConsumeGenerator {
         consume(new ConsumeItemEfficiency(item -> powerPerSecond.containsKey(item)));
 
         super.init();
+    }
+
+    @Override
+    public void setStats() {
+        super.setStats();stats.remove(Stat.productionTime);stats.remove(Stat.input);stats.remove(Stat.output);
+
+        // 添加一个表格显示各燃料的发电性能
+        stats.add(Stat.input, table -> {
+            table.table(fuelTable -> {
+                // 遍历所有已配置的可燃物品
+                for (Item item : powerPerSecond.keys()) {
+                    float powerSec = powerPerSecond.get(item, 0f);
+                    float multiplier = timeMultiplierMap.get(item, 0f);
+                    float durationSec = (itemDuration / 60f) * multiplier; // 基础40秒 × 倍数
+
+                    // 每行前添加分隔，第一行除外（可通过循环索引控制，但简单起见统一先换行）
+                    fuelTable.row();
+                    fuelTable.table(line -> {
+                        // 物品图标
+                        GridItemsDisplay.Slot[] slots = new GridItemsDisplay.Slot[]{new GridItemsDisplay.Slot(item, 1)};
+                        GridItemsDisplay display = GridItemsDisplay.withFixedColumns(1);
+                        display.setSlots(slots);
+                        line.add(display).center();
+                        // 物品名称
+                        line.add(item.localizedName).padLeft(4).left();
+                        // 发电量（每秒）
+                        line.add(" " + powerSec + " " + StatUnit.powerSecond.localized()).padLeft(10);
+                        // 持续时间（秒）
+                        line.add(" " + durationSec + " " + StatUnit.seconds.localized()).padLeft(10);
+                    }).pad(4).left();
+                }
+            }).pad(4).left();
+        });
     }
 
     public class ThermalBankBuild extends ConsumeGeneratorBuild {

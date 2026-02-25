@@ -1,4 +1,4 @@
-package endfieldindustrylib.AICTransport;
+package endfieldindustrylib.EFworld.blocks.AICTransport;
 
 import mindustry.gen.Building;
 import mindustry.gen.Teamc;
@@ -19,6 +19,7 @@ public class TransportBelt extends Conveyor {
         size = 1;
         itemCapacity = 1;          // 容量为1，但内部数组仍为3，需通过逻辑限制
         noSideBlend = true;         // 禁止侧面输入
+        hasShadow = false;        // 关阴影
         group = BlockGroup.transportation;
         category = Category.distribution;
         requirements(Category.distribution, ItemStack.with());
