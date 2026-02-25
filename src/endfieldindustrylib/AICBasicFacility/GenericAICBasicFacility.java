@@ -10,7 +10,7 @@ import arc.struct.*;
 import arc.util.io.*;
 import mindustry.gen.*;
 import mindustry.type.*;
-import mindustry.world.*;
+import mindustry.world.blocks.production.GenericCrafter;
 import mindustry.world.meta.*;
 import mindustry.graphics.*;
 import mindustry.ui.*;
@@ -38,7 +38,7 @@ import java.util.function.Consumer;
  * - 输出并发：同一输出槽可同时向多个方向输出
  * - 仅与自定义传送带系列方块交互（TransportBelt, ItemControlPort, Splitter, BeltBridge, Converger）
  */
-public class GenericAICBasicFacility extends Block {
+public class GenericAICBasicFacility extends GenericCrafter {
     public int inputFacingMask = 0b1111;
     public int outputFacingMask = 0b1111;
     public SlotDef[] inputSlotDefs = {};
@@ -71,17 +71,16 @@ public class GenericAICBasicFacility extends Block {
         configurable = true; 
         ambientSound = Sounds.loopMachine;
         sync = true;
-        drawArrow = false;
         flags = EnumSet.of(BlockFlag.factory);
         rotate = true;
+        drawArrow = true;
     }
 
     @Override
     public void setStats() {
         super.setStats();
         if (recipes.length > 0) {
-            // 使用 productionTime 作为标题，内部构建一个表格展示所有配方
-            stats.add(Stat.productionTime, table -> {
+            stats.add( Stat.output, table -> {
                 table.table(recipesTable -> {
                     for (int i = 0; i < recipes.length; i++) {
                         Recipe r = recipes[i];
@@ -96,7 +95,7 @@ public class GenericAICBasicFacility extends Block {
                             }
                             GridItemsDisplay inputDisplay = GridItemsDisplay.withFixedColumns(2);
                             inputDisplay.setSlots(inputSlots);
-                            line.add(inputDisplay).left();
+                            line.add(inputDisplay).center();
 
                             line.add(" -> "); // 箭头表示转化
 
@@ -108,7 +107,7 @@ public class GenericAICBasicFacility extends Block {
                             }
                             GridItemsDisplay outputDisplay = GridItemsDisplay.withFixedColumns(2);
                             outputDisplay.setSlots(outputSlots);
-                            line.add(outputDisplay).left();
+                            line.add(outputDisplay).center();
 
                             // 制造时间（以秒为单位）
                             line.add("  " + (r.craftTime / 60f) + " " + StatUnit.seconds.localized());
@@ -119,8 +118,9 @@ public class GenericAICBasicFacility extends Block {
         }
     }
 
-    @Override public void setBars() {
-        super.setBars(); removeBar("liquid");
+    @Override
+    public void setBars() {
+        super.setBars(); removeBar("liquid"); removeBar("items");
         addBar("progress", (GenericAICBasicFacilityBuild e) -> new Bar("bar.progress", Pal.ammo, e::progress));
     }
 
@@ -207,8 +207,7 @@ public class GenericAICBasicFacility extends Block {
         }
 
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
-        private boolean isAllowedTransport(Building other) {
-            return other instanceof TransportBelt.TransportBeltBuild ||
+        private boolean isAllowedTransport(Building other) {return other instanceof TransportBelt.TransportBeltBuild ||
                    other instanceof ItemControlPort.ItemControlPortBuild ||
                    other instanceof Splitter.SplitterBuild ||
                    other instanceof BeltBridge.BeltBridgeBuild ||
