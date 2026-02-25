@@ -1,6 +1,5 @@
 package endfieldindustrylib.EFworld.blocks.AICPower;
 
-import arc.scene.ui.Image;
 import arc.struct.ObjectMap;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
@@ -12,7 +11,6 @@ import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.consumers.ConsumeItemEfficiency;
 import mindustry.world.meta.Stat;
 import mindustry.world.meta.StatUnit;
-import endfieldindustrylib.Items.EFItems;
 import endfieldindustrylib.ui.GridItemsDisplay;
 
 public class ThermalBank extends ConsumeGenerator {
