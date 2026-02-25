@@ -46,7 +46,7 @@ public class EFitems {
 
     public static void load() {
         // 矿物
-        originiumOre = new Item("originium-ore") {{color = Color.valueOf("c66322");hardness = 1;cost = 1;}};
+        originiumOre = new Item("originium-ore") {{color = Color.valueOf("c66322");hardness = 1;cost = 1;charge = 0.05f;}};
         amethystOre = new Item("amethyst-ore") {{color = Color.valueOf("a55fc4");hardness = 2;cost = 1;}};
         ferriumOre = new Item("ferrium-ore") {{color = Color.valueOf("4f7ebf");hardness = 3;cost = 1;}};
 
@@ -112,10 +112,10 @@ public class EFitems {
         steel = new Item("steel") {{color = Color.valueOf("7f8c8d");hardness = 4;cost = 1;}};
 
         // 电池
-        lcValleyBattery = new Item("lc-valley-battery") {{color = Color.valueOf("7dcea0");hardness = 0;cost = 1;}};
-        scValleyBattery = new Item("sc-valley-battery") {{color = Color.valueOf("52be80");hardness = 0;cost = 1;}};
-        hcValleyBattery = new Item("hc-valley-battery") {{color = Color.valueOf("27ae60");hardness = 0;cost = 1;}};
-        lcWulingBattery = new Item("lc-wuling-battery") {{color = Color.valueOf("85c1e2");hardness = 0;cost = 1;}};
+        lcValleyBattery = new Item("lc-valley-battery") {{color = Color.valueOf("7dcea0");hardness = 0;cost = 1;charge = 0.22f;}};
+        scValleyBattery = new Item("sc-valley-battery") {{color = Color.valueOf("52be80");hardness = 0;cost = 1;charge = 0.42f;}};
+        hcValleyBattery = new Item("hc-valley-battery") {{color = Color.valueOf("27ae60");hardness = 0;cost = 1;charge = 1.1f;}};
+        lcWulingBattery = new Item("lc-wuling-battery") {{color = Color.valueOf("85c1e2");hardness = 0;cost = 1;charge = 1.6f;}};
         //scWulingBattery = new Item("lc-wuling-battery") {{color = Color.valueOf("85c1e2");hardness = 0;cost = 1;}};
         //hcWulingBattery = new Item("lc-wuling-battery") {{color = Color.valueOf("85c1e2");hardness = 0;cost = 1;}};
 

@@ -1,14 +1,11 @@
 package endfieldindustrylib.EFworld.blocks.AICPower;
 
 import arc.struct.ObjectMap;
-import arc.util.io.Reads;
-import arc.util.io.Writes;
 import endfieldindustrylib.EFcontents.EFitems;
-import mindustry.Vars;
 import mindustry.gen.Building;
 import mindustry.type.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
-import mindustry.world.consumers.ConsumeItemEfficiency;
+import mindustry.world.consumers.ConsumeItemCharged;
 
 public class ThermalBank extends ConsumeGenerator {
     // 物品 → 每秒发电量（用于计算每 tick 功率）
@@ -23,74 +20,14 @@ public class ThermalBank extends ConsumeGenerator {
         itemCapacity = 50;       // 物品容量 50
         hasItems = true;         // 启用物品存储
         hasLiquids = false;      // 不涉及液体
-        powerProduction = 0f;     // 基础功率设为 0，完全由 getPowerProduction 控制
+        powerProduction = 16.66667f;     // 基础功率设为 0，完全由 getPowerProduction 控制
         itemDuration = 2400f;    // 基础燃烧时间 40 秒（2400 ticks）
         // 建造需求（请确保物品已定义）
         requirements(Category.power, ItemStack.with(EFitems.origocrust, 5, EFitems.amethystPart, 5));
-    }
-
-    @Override
-    public void init() {
-        // 填充物品每秒发电量
-        powerPerSecond.put(EFitems.originiumOre, 50f);
-        powerPerSecond.put(EFitems.lcValleyBattery, 220f);
-        powerPerSecond.put(EFitems.scValleyBattery, 420f);
-        powerPerSecond.put(EFitems.hcValleyBattery, 1100f);
-        powerPerSecond.put(EFitems.lcWulingBattery, 1600f);
-
-        // 填充物品燃烧时长倍数（实际秒数 / 40）
-        timeMultiplierMap.put(EFitems.originiumOre, 0.2f);  // 8 / 40
-        timeMultiplierMap.put(EFitems.lcValleyBattery, 1f); // 40 / 40
-        timeMultiplierMap.put(EFitems.scValleyBattery, 1f);
-        timeMultiplierMap.put(EFitems.hcValleyBattery, 1f);
-        timeMultiplierMap.put(EFitems.lcWulingBattery, 1f);
-
-        // 设置燃烧时长乘数（影响 generateTime 的递减速度）
-        itemDurationMultipliers.clear();
-        for (Item item : timeMultiplierMap.keys()) {
-            itemDurationMultipliers.put(item, timeMultiplierMap.get(item));
-        }
-
-        // 添加物品消耗器：仅用于过滤可燃烧物品（不提供效率乘数）
-        consume(new ConsumeItemEfficiency(item -> powerPerSecond.containsKey(item)));
-
-        super.init();
+        consume(new ConsumeItemCharged(0.05f));
     }
 
     public class ThermalBankBuild extends ConsumeGeneratorBuild {
-        private Item currentFuel = null; // 当前燃烧的物品
-
-        @Override
-        public void updateTile() {
-            float oldGen = generateTime;
-            // 记录消耗前的物品栏第一个物品（即将被消耗的可能物品）
-            Item possibleFuel = items.total() > 0 ? items.first() : null;
-
-            // 调用父类更新，它会执行消耗逻辑并更新 generateTime
-            super.updateTile();
-
-            // 如果刚刚消耗了一个物品（generateTime 从 <=0 变为 >0），设置当前燃料
-            if (oldGen <= 0f && generateTime > 0f && possibleFuel != null) {
-                currentFuel = possibleFuel;
-            }
-
-            // 如果燃烧结束，清除燃料记录
-            if (generateTime <= 0f) {
-                currentFuel = null;
-            }
-        }
-
-        @Override
-        public float getPowerProduction() {
-            // 返回每 tick 的发电量 = 每秒功率 / 60
-            if (generateTime > 0f && currentFuel != null) {
-                Float powerSec = powerPerSecond.get(currentFuel);
-                if (powerSec != null) {
-                    return powerSec / 60f;
-                }
-            }
-            return 0f;
-        }
 
         @Override
         public boolean acceptItem(Building source, Item item) {
@@ -110,19 +47,6 @@ public class ThermalBank extends ConsumeGenerator {
                 Item existing = items.first();
                 return item == existing;
             }
-        }
-
-        @Override
-        public void write(Writes write) {
-            super.write(write);
-            write.s(currentFuel == null ? -1 : currentFuel.id);
-        }
-
-        @Override
-        public void read(Reads read, byte revision) {
-            super.read(read, revision);
-            int id = read.s();
-            currentFuel = id == -1 ? null : Vars.content.item(id);
         }
     }
 }
