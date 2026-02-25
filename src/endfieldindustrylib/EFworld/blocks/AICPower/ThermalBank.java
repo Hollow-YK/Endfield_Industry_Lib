@@ -9,6 +9,9 @@ import mindustry.gen.Building;
 import mindustry.type.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.consumers.ConsumeItemEfficiency;
+import mindustry.world.meta.Stat;
+import mindustry.world.meta.StatUnit;
+import endfieldindustrylib.ui.GridItemsDisplay;
 
 public class ThermalBank extends ConsumeGenerator {
     // 物品 → 每秒发电量（用于计算每 tick 功率）
@@ -55,6 +58,39 @@ public class ThermalBank extends ConsumeGenerator {
         consume(new ConsumeItemEfficiency(item -> powerPerSecond.containsKey(item)));
 
         super.init();
+    }
+
+    @Override
+    public void setStats() {
+        super.setStats();stats.remove(Stat.productionTime);stats.remove(Stat.input);stats.remove(Stat.output);
+
+        // 添加一个表格显示各燃料的发电性能
+        stats.add(Stat.input, table -> {
+            table.table(fuelTable -> {
+                // 遍历所有已配置的可燃物品
+                for (Item item : powerPerSecond.keys()) {
+                    float powerSec = powerPerSecond.get(item, 0f);
+                    float multiplier = timeMultiplierMap.get(item, 0f);
+                    float durationSec = (itemDuration / 60f) * multiplier; // 基础40秒 × 倍数
+
+                    // 每行前添加分隔，第一行除外（可通过循环索引控制，但简单起见统一先换行）
+                    fuelTable.row();
+                    fuelTable.table(line -> {
+                        // 物品图标
+                        GridItemsDisplay.Slot[] slots = new GridItemsDisplay.Slot[]{new GridItemsDisplay.Slot(item, 1)};
+                        GridItemsDisplay display = GridItemsDisplay.withFixedColumns(1);
+                        display.setSlots(slots);
+                        line.add(display).center();
+                        // 物品名称
+                        line.add(item.localizedName).padLeft(4).left();
+                        // 发电量（每秒）
+                        line.add(" " + powerSec + " " + StatUnit.powerSecond.localized()).padLeft(10);
+                        // 持续时间（秒）
+                        line.add(" " + durationSec + " " + StatUnit.seconds.localized()).padLeft(10);
+                    }).pad(4).left();
+                }
+            }).pad(4).left();
+        });
     }
 
     public class ThermalBankBuild extends ConsumeGeneratorBuild {
