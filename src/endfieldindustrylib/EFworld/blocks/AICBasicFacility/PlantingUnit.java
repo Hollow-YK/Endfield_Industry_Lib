@@ -4,6 +4,7 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class PlantingUnit extends GenericAICBasicFacility {
+
     public PlantingUnit(String name) {
         super(name);
 

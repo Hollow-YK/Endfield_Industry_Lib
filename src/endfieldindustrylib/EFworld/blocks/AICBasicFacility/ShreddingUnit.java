@@ -4,6 +4,7 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class ShreddingUnit extends GenericAICBasicFacility {
+
     public ShreddingUnit(String name) {
         super(name);
 
