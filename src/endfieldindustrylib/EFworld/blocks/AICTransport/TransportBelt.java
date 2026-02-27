@@ -1,15 +1,25 @@
 package endfieldindustrylib.EFworld.blocks.AICTransport;
 
+import arc.math.Mathf;
+import arc.scene.ui.ImageButton;
+import arc.scene.ui.layout.Table;
 import mindustry.gen.Building;
 import mindustry.gen.Teamc;
+import mindustry.graphics.Pal;
 import mindustry.type.Category;
 import mindustry.type.Item;
 import mindustry.type.ItemStack;
+import mindustry.world.Block;
 import mindustry.world.Edges;
 import mindustry.world.Tile;
 import mindustry.world.blocks.distribution.Conveyor;
 import mindustry.world.meta.BlockGroup;
-import arc.math.Mathf;
+import mindustry.core.UI;
+import arc.Core;
+import arc.util.Align;
+import arc.util.Scaling;
+import arc.util.io.Reads;
+import arc.util.io.Writes;
 
 public class TransportBelt extends Conveyor {
     public TransportBelt(String name) {
@@ -18,23 +28,66 @@ public class TransportBelt extends Conveyor {
         health = 1024;
         size = 1;
         itemCapacity = 1;          // 容量为1，但内部数组仍为3，需通过逻辑限制
-        noSideBlend = true;         // 禁止侧面输入
+        noSideBlend = true;         // 禁止侧面输入（视觉上，逻辑由方向控制）
+        configurable = true;
         group = BlockGroup.transportation;
         category = Category.distribution;
         requirements(Category.distribution, ItemStack.with());
     }
 
+    @Override
+    public boolean blends(Tile tile, int rotation, int otherx, int othery, int otherrot, Block otherblock) {
+        // 如果没有相邻方块，不混合
+        if (otherblock == null) return false;
+
+        // 获取当前方块的建筑实例，以获取 inputDir
+        TransportBeltBuild build = tile.build instanceof TransportBeltBuild ? (TransportBeltBuild) tile.build : null;
+        if (build == null) return false;
+
+        int inputDir = build.inputDir;
+        // 计算相邻方块相对于当前方块的方向
+        int dir = tile.relativeTo(otherx, othery);
+
+        // 仅当方向等于输入方向或输出方向时才考虑混合
+        if (dir != inputDir && dir != rotation) return false;
+
+        // 对方方块应该是运输组（传送带、路由器等）或者可以输出物品
+        // 原版传送带属于 transportation 组
+        return otherblock.group == BlockGroup.transportation || otherblock.outputsItems();
+    }
+
     public class TransportBeltBuild extends ConveyorBuild {
         private static final float itemSpace = 0.4f; // 从父类复制，用于位置计算
 
+        // 允许的输入方向（0=右,1=上,2=左,3=下），默认后方
+        public int inputDir;
+
+        @Override
+        public void created() {
+            super.created();
+            // 建造时默认输入方向为后方
+            inputDir = (rotation + 2) % 4;
+        }
+
         @Override
         public boolean acceptItem(Building source, Item item) {
-            // 只有当前没有物品时才接受，同时保留父类的基本方向检查
-            return len == 0 && super.acceptItem(source, item);
+            // 检查来源方向是否与设定的输入方向一致
+            if (source == null) return false;
+            int sourceDir = tile.relativeTo(source.tile);
+            if (sourceDir != inputDir) return false;
+
+            // 只有当前没有物品时才接受
+            return len == 0;
         }
 
         @Override
         public int acceptStack(Item item, int amount, Teamc source) {
+            // 检查来源方向（如果是建筑）
+            if (source instanceof Building) {
+                Building src = (Building) source;
+                int sourceDir = tile.relativeTo(src.tile);
+                if (sourceDir != inputDir) return 0;
+            }
             // 最多接受1个物品
             return len == 0 ? Math.min(1, amount) : 0;
         }
@@ -72,7 +125,7 @@ public class TransportBelt extends Conveyor {
                 xs[0] = x;
                 ys[0] = 0;
                 ids[0] = item;
-            } else { // 从侧面进入（noSideBlend=true时不会发生，但保留逻辑）
+            } else { // 从侧面进入（可能发生，因为方向允许侧面）
                 add(0);
                 xs[0] = x;
                 ys[0] = 0.5f;
@@ -123,6 +176,61 @@ public class TransportBelt extends Conveyor {
             }
 
             noSleep();
+        }
+
+        @Override
+        public void buildConfiguration(Table table) {
+            // 清除原有配置
+            table.clear();
+
+            // 获取三个允许的输入方向（排除输出方向）
+            int[] validDirs = new int[]{
+                (rotation + 1) % 4,
+                (rotation + 2) % 4,
+                (rotation + 3) % 4
+            };
+
+            for (int dir : validDirs) {
+                // 计算箭头旋转角度
+                float angle = 0;
+                switch (dir) {
+                    case 0: angle = 90; break;  // 右
+                    case 1: angle = 180; break;   // 上
+                    case 2: angle = 270; break; // 左
+                    case 3: angle = 0; break; // 下
+                }
+
+                // 创建箭头按钮
+                ImageButton button = new ImageButton(Core.atlas.find("endfield-industry-lib-arrow"));
+                button.getImage().setRotation(angle);
+                button.getImage().setScaling(Scaling.fit);
+                button.getImage().setOrigin(Align.center);
+                button.getImageCell().center();
+                button.clicked(() -> {
+                    inputDir = dir;
+                    deselect(); // 关闭配置菜单
+                });
+
+                // 如果当前方向已被选中，高亮按钮
+                button.setChecked(inputDir == dir);
+                // 设置按钮颜色（可选）
+                button.getImage().setColor(Pal.accent);
+
+                // 添加到表格
+                table.add(button).size(40).pad(2);
+            }
+        }
+
+        @Override
+        public void write(Writes write) {
+            super.write(write);
+            write.i(inputDir);
+        }
+
+        @Override
+        public void read(Reads read, byte revision) {
+            super.read(read, revision);
+            inputDir = read.i();
         }
     }
 }
