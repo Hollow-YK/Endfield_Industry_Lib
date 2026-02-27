@@ -22,7 +22,8 @@ public class TransportBelt extends Conveyor {
         health = 1024;
         size = 1;
         itemCapacity = 1;          // 容量为1，但内部数组仍为3，需通过逻辑限制
-        noSideBlend = true;         // 禁止侧面输入（视觉上，逻辑由方向控制）
+        noSideBlend = true;         // 禁止侧面输入
+        hasShadow = false;        // 关阴影
         group = BlockGroup.transportation;
         category = Category.distribution;
         requirements(Category.distribution, ItemStack.with());
