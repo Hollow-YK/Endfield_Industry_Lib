@@ -30,7 +30,7 @@ import java.util.function.Consumer;
  * - 分别设置输入/输出允许的方向（相对于建筑朝向）
  * - 固定物品类型的输入/输出槽位，每个槽位最多堆叠50个
  * - 通用槽位（itemType = null）可接受任意物品，但每种物品仍只占一个槽位
- * - 多个配方，自动匹配第一个可用的配方进行生产
+ * - 多个配方，使用深度搜索算法匹配配方
  * - 点击建筑显示所有槽位（输入左，输出右，中间箭头）
  * - 输入槽位中，一种物品仅允许占一个槽位
  * - 输出并发：同一输出槽可同时向多个方向输出
@@ -154,6 +154,10 @@ public class GenericAICBasicFacility extends GenericCrafter {
         public Recipe currentRecipe;
         public int currentRecipeIndex = -1;
 
+        // 当前配方对应的槽位分配
+        private int[] currentInputAssignment;
+        private int[] currentOutputAssignment;
+
         // 轮询索引：每个输出槽上次输出到的相邻建筑在proximity中的位置
         private int[] lastOutputIndex;
 
@@ -205,7 +209,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
-        private boolean isAllowedTransport(Building other) {return other instanceof TransportBelt.TransportBeltBuild ||
+        private boolean isAllowedTransport(Building other) {
+            return other instanceof TransportBelt.TransportBeltBuild ||
                    other instanceof ItemControlPort.ItemControlPortBuild ||
                    other instanceof Splitter.SplitterBuild ||
                    other instanceof BeltBridge.BeltBridgeBuild ||
@@ -213,8 +218,13 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         @Override public void updateTile() {
-            if (currentRecipe == null || !canUseRecipe(currentRecipe)) findRecipe();
-            if (currentRecipe != null && canUseRecipe(currentRecipe)) {
+            // 如果当前配方无效或分配失败，重新查找配方
+            if (currentRecipe == null || !checkAndAssignCurrentRecipe()) {
+                findRecipe();
+            }
+
+            if (currentRecipe != null) {
+                // 此时分配数组一定有效（由 findRecipe 或 checkAndAssignCurrentRecipe 设置）
                 float inc = getProgressIncrease(currentRecipe.craftTime);
                 progress += inc;
                 warmup = Mathf.approachDelta(warmup, 1f, 0.019f);
@@ -225,43 +235,119 @@ public class GenericAICBasicFacility extends GenericCrafter {
             dumpOutputs();
         }
 
-        public boolean canUseRecipe(Recipe recipe) {
-            for (int i = 0; i < recipe.input.length; i++) {
-                ItemStack req = recipe.input[i];
-                Slot slot = inputSlots[i];
-                if (!slot.has(req.item, req.amount)) return false;
+        /**
+         * 尝试为当前配方重新分配槽位。
+         * @return 如果分配成功则更新 currentInputAssignment 和 currentOutputAssignment 并返回 true，否则返回 false
+         */
+        private boolean checkAndAssignCurrentRecipe() {
+            if (currentRecipe == null) return false;
+            int[] tempInputAssign = new int[currentRecipe.input.length];
+            int[] tempOutputAssign = new int[currentRecipe.output.length];
+            if (tryAssignInputs(currentRecipe.input, tempInputAssign) && tryAssignOutputs(currentRecipe.output, tempOutputAssign)) {
+                currentInputAssignment = tempInputAssign;
+                currentOutputAssignment = tempOutputAssign;
+                return true;
             }
-            for (int i = 0; i < recipe.output.length; i++) {
-                ItemStack prod = recipe.output[i];
-                Slot slot = outputSlots[i];
-                if (slot.fixedType != null && slot.fixedType != prod.item) return false;
-                if (slot.amount + prod.amount > slot.maxAmount) return false;
-            }
-            return true;
+            return false;
         }
 
+        /**
+         * 查找第一个可用的配方，并设置 currentRecipe 及分配数组。
+         */
         public void findRecipe() {
             if (recipes == null) return;
             for (int i = 0; i < recipes.length; i++) {
-                if (canUseRecipe(recipes[i])) {
-                    currentRecipe = recipes[i];
+                Recipe recipe = recipes[i];
+                int[] tempInputAssign = new int[recipe.input.length];
+                int[] tempOutputAssign = new int[recipe.output.length];
+                if (tryAssignInputs(recipe.input, tempInputAssign) && tryAssignOutputs(recipe.output, tempOutputAssign)) {
+                    currentRecipe = recipe;
                     currentRecipeIndex = i;
+                    currentInputAssignment = tempInputAssign;
+                    currentOutputAssignment = tempOutputAssign;
                     progress = 0f;
                     return;
                 }
             }
-            currentRecipe = null; currentRecipeIndex = -1;
+            currentRecipe = null;
+            currentRecipeIndex = -1;
+            currentInputAssignment = null;
+            currentOutputAssignment = null;
+        }
+
+        /** 尝试为输入需求分配槽位（回溯算法） */
+        private boolean tryAssignInputs(ItemStack[] required, int[] assignment) {
+            if (required.length == 0) return true;
+            boolean[] used = new boolean[inputSlots.length];
+            return backtrackInput(0, required, assignment, used);
+        }
+
+        private boolean backtrackInput(int idx, ItemStack[] required, int[] assignment, boolean[] used) {
+            if (idx == required.length) return true;
+            ItemStack req = required[idx];
+            for (int i = 0; i < inputSlots.length; i++) {
+                if (used[i]) continue;
+                Slot slot = inputSlots[i];
+                if (slot.has(req.item, req.amount)) {
+                    used[i] = true;
+                    assignment[idx] = i;
+                    if (backtrackInput(idx + 1, required, assignment, used)) return true;
+                    used[i] = false;
+                }
+            }
+            return false;
+        }
+
+        /** 尝试为输出需求分配槽位（回溯算法） */
+        private boolean tryAssignOutputs(ItemStack[] produced, int[] assignment) {
+            if (produced.length == 0) return true;
+            boolean[] used = new boolean[outputSlots.length];
+            return backtrackOutput(0, produced, assignment, used);
+        }
+
+        private boolean backtrackOutput(int idx, ItemStack[] produced, int[] assignment, boolean[] used) {
+            if (idx == produced.length) return true;
+            ItemStack prod = produced[idx];
+            for (int i = 0; i < outputSlots.length; i++) {
+                if (used[i]) continue;
+                Slot slot = outputSlots[i];
+                if (canOutputAccept(slot, prod.item, prod.amount)) {
+                    used[i] = true;
+                    assignment[idx] = i;
+                    if (backtrackOutput(idx + 1, produced, assignment, used)) return true;
+                    used[i] = false;
+                }
+            }
+            return false;
+        }
+
+        /** 判断输出槽位是否能容纳指定物品及数量 */
+        private boolean canOutputAccept(Slot slot, Item item, int amount) {
+            if (slot.fixedType != null && slot.fixedType != item) return false;
+            if (slot.fixedType == null && slot.amount > 0 && slot.currentItem != item) return false;
+            return slot.amount + amount <= slot.maxAmount;
+        }
+
+        public boolean canUseRecipe(Recipe recipe) {
+            // 此方法已废弃，但为兼容保留，直接调用分配检查
+            int[] dummyInput = new int[recipe.input.length];
+            int[] dummyOutput = new int[recipe.output.length];
+            return tryAssignInputs(recipe.input, dummyInput) && tryAssignOutputs(recipe.output, dummyOutput);
         }
 
         public void craft() {
             if (currentRecipe == null) return;
+            // 消耗输入
             for (int i = 0; i < currentRecipe.input.length; i++) {
                 ItemStack req = currentRecipe.input[i];
-                inputSlots[i].remove(req.amount);
+                int slotIdx = currentInputAssignment[i];
+                inputSlots[slotIdx].remove(req.amount);
             }
+            // 产出输出
             for (int i = 0; i < currentRecipe.output.length; i++) {
                 ItemStack prod = currentRecipe.output[i];
-                outputSlots[i].add(prod.item, prod.amount);
+                int slotIdx = currentOutputAssignment[i];
+                outputSlots[slotIdx].add(prod.item, prod.amount);
             }
             progress %= 1f;
         }
