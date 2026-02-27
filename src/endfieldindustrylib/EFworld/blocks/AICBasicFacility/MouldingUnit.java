@@ -4,6 +4,7 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class MouldingUnit extends GenericAICBasicFacility {
+
     public MouldingUnit(String name) {
         super(name);
 
