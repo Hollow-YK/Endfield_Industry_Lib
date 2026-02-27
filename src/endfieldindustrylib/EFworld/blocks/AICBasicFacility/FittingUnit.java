@@ -4,6 +4,7 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class FittingUnit extends GenericAICBasicFacility {
+
     public FittingUnit(String name) {
         super(name);
 
