@@ -3,10 +3,10 @@ package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
 import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
-public class PackagingUnit extends GenericAICBasicFacility {
+public class PackagingUnit extends RectGenericAICBasicFacility {
 
-    public PackagingUnit(String name) {
-        super(name);
+    public PackagingUnit(String name, int width, int height) {
+        super(name, width, height);
 
         size = 3;
         powerUsage = 0.333335f;

@@ -217,7 +217,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
-        private boolean isAllowedTransport(Building other) {
+        public boolean isAllowedTransport(Building other) {
             return other instanceof TransportBelt.TransportBeltBuild ||
                    other instanceof ItemControlPort.ItemControlPortBuild ||
                    other instanceof Splitter.SplitterBuild ||
@@ -426,7 +426,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
         }
 
-        private int findAcceptableInputSlot(Item item) {
+        public int findAcceptableInputSlot(Item item) {
             IntSeq candidates = new IntSeq();
             for (int i = 0; i < inputSlots.length; i++) {
                 if (inputSlots[i].accepts(item)) candidates.add(i);

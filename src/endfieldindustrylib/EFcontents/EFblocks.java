@@ -6,6 +6,8 @@ import endfieldindustrylib.EFworld.blocks.AICTransport.*;
 
 public class EFblocks {
     public static void load() {
+        // 注册矩形多块工厂所需的子方块
+        RectGenericAICBasicFacility.registerChildBlock();
         // 物流运输
         new TransportBelt("transport-belt").load();           // 传送带
         new ItemControlPort("item-control-port").load();      // 物品准入口
@@ -22,7 +24,7 @@ public class EFblocks {
         // 合成制造
         //new GearingUnit("gearing-unit").load();                    //装备原件机
         //new FillingUnit("filling-unit").load();                    //灌装机
-        new PackagingUnit("packaging-unit").load();           //封装机
+        new PackagingUnit("packaging-unit", 3, 5).load();           //封装机
         //new GrindingUnit("grinding-unit").load();                  //研磨机
         //new SeparatingUnit("separating-unit").load();              //拆解机
         //new ReactorCrucible("reactor-crucible").load();            //反应池
