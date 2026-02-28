@@ -9,6 +9,7 @@ public class PackagingUnit extends GenericAICBasicFacility {
         super(name);
 
         size = 3;
+        powerUsage = 0.333335f;
         requirements(Category.crafting, ItemStack.with(EFitems.amethystPart, 20));
 
         rotate = true;

@@ -9,6 +9,7 @@ public class SeedPickingUnit extends GenericAICBasicFacility {
         super(name);
 
         size = 5;
+        powerUsage = 0.16667f;
         requirements(Category.production, ItemStack.with(EFitems.amethystPart, 20));
 
         rotate = true;

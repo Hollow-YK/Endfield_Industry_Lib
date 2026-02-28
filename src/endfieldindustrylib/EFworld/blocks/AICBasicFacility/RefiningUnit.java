@@ -9,6 +9,7 @@ public class RefiningUnit extends GenericAICBasicFacility {
         super(name);
 
         size = 3;
+        powerUsage = 0.083345f;
         requirements(Category.crafting, ItemStack.with(EFitems.originiumOre, 5));
 
         rotate = true;

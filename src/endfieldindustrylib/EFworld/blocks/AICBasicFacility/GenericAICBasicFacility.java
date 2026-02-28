@@ -35,6 +35,7 @@ import java.util.function.Consumer;
  * - 输入槽位中，一种物品仅允许占一个槽位
  * - 输出并发：同一输出槽可同时向多个方向输出
  * - 仅与自定义传送带系列方块交互（TransportBelt, ItemControlPort, Splitter, BeltBridge, Converger）
+ * - 电力消耗：默认5/s，无论是否工作，供电不足时停止生产并清空进度
  */
 public class GenericAICBasicFacility extends GenericCrafter {
     public int inputFacingMask = 0b1111;
@@ -42,6 +43,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
     public SlotDef[] inputSlotDefs = {};
     public SlotDef[] outputSlotDefs = {};
     public Recipe[] recipes = {};
+    public float powerUsage = 0.083345f;
 
     // 静态回调，用于显示自定义配置面板（由 Mod 主类注册）
     public static Consumer<GenericAICBasicFacilityBuild> showConfigHandler;
@@ -66,6 +68,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
         solid = true; 
         hasItems = true;
         hasLiquids = false;
+        hasPower = true;
         configurable = true; 
         ambientSound = Sounds.loopMachine;
         sync = true;
@@ -114,15 +117,20 @@ public class GenericAICBasicFacility extends GenericCrafter {
                 }).pad(4).left();
             });
         }
+        // 电力消耗统计由 super.setStats() 自动添加，无需额外操作
     }
 
     @Override
     public void setBars() {
         super.setBars(); removeBar("liquid"); removeBar("items");
         addBar("progress", (GenericAICBasicFacilityBuild e) -> new Bar("bar.progress", Pal.ammo, e::progress));
+        // 电力条会自动添加，因为 hasPower = true
     }
 
     @Override public void init() {
+        // 【新增】配置电力消耗（必须位于 super.init() 之前）
+        consumePower(powerUsage);
+        
         if (recipes != null) {
             for (Recipe recipe : recipes) {
                 if (recipe.input.length > inputSlotDefs.length)
@@ -218,18 +226,26 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         @Override public void updateTile() {
-            // 如果当前配方无效或分配失败，重新查找配方
-            if (currentRecipe == null || !checkAndAssignCurrentRecipe()) {
-                findRecipe();
-            }
+            // 供电不足时清空进度，停止生产，输出仍进行
+            boolean powerOk = power != null && power.status >= 1f - 0.001f; // 允许微小浮点误差
+            
+            if (powerOk) {
+                // 供电正常：执行原有生产逻辑
+                if (currentRecipe == null || !checkAndAssignCurrentRecipe()) {
+                    findRecipe();
+                }
 
-            if (currentRecipe != null) {
-                // 此时分配数组一定有效（由 findRecipe 或 checkAndAssignCurrentRecipe 设置）
-                float inc = getProgressIncrease(currentRecipe.craftTime);
-                progress += inc;
-                warmup = Mathf.approachDelta(warmup, 1f, 0.019f);
-                if (progress >= 1f) craft();
+                if (currentRecipe != null) {
+                    float inc = getProgressIncrease(currentRecipe.craftTime);
+                    progress += inc;
+                    warmup = Mathf.approachDelta(warmup, 1f, 0.019f);
+                    if (progress >= 1f) craft();
+                } else {
+                    warmup = Mathf.approachDelta(warmup, 0f, 0.019f);
+                }
             } else {
+                // 供电不足：清空进度，warmup 归零
+                progress = 0f;
                 warmup = Mathf.approachDelta(warmup, 0f, 0.019f);
             }
             dumpOutputs();
