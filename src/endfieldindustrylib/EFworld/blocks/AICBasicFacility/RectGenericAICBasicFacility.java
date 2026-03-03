@@ -110,13 +110,16 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                 if (master != null) master.damage(damage);
             }
 
-            @Override
-            public void updateTile() {
-                // 子方块不需要独立更新逻辑
-            }
-
+            public boolean consumed = false;
             @Override
             public void tapped() {
+                if (master != null && consumed == false) {
+                    master.tapped();
+                    consumed = true;
+                } else {
+                    master.onConfigureClosed();
+                    consumed = false;
+                }
             }
 
             @Override
@@ -227,7 +230,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         public void onRemoved() {
             // 移除所有子方块
             for (Building child : children) {
-                if (child.isAdded()) child.remove();
+                if (child.isAdded()) child.kill();
             }
             super.onRemoved();
         }
@@ -249,27 +252,26 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
     // -------------------------------------------------------------------------
     @Override
     public boolean canPlaceOn(Tile tile, Team team, int rotation) {
-        int w = rotation % 2 == 0 ? rectWidth : rectHeight;
-        int h = rotation % 2 == 0 ? rectHeight : rectWidth;
-        int offX = -w / 2 + (w % 2 == 0 ? 0 : 1);
-        int offY = -h / 2 + (h % 2 == 0 ? 0 : 1);
-        for (int dx = 0; dx < w; dx++) {
-            for (int dy = 0; dy < h; dy++) {
-                Tile other = world.tile(tile.x + offX + dx, tile.y + offY + dy);
-                if (other == null || !other.block().replaceable /*|| !other.team().data().canPlace(other.x, other.y, team)*/ ) {
+        float w = rotation % 2 == 0 ? rectWidth/2 : rectHeight/2;
+        float h = rotation % 2 == 0 ? rectHeight/2 : rectWidth/2;
+         for(int x = (int)Math.ceil(tile.x-w);x <= Math.floor(tile.x+w);x++){
+            for(int y = (int)Math.ceil(tile.y-h);y <= Math.floor(tile.y+h);y++){
+                Tile other = world.tile(x,y);
+                if (other == null || other.block().solid /*|| !other.team().data().canPlace(other.x, other.y, team)*/ ) {
                     return false;
                 }
             }
         }
         return super.canPlaceOn(tile, team, rotation);
+        
     }
 
     @Override
     public void drawPlace(int x, int y, int rotation, boolean valid) {
         int w = rotation % 2 == 0 ? rectWidth : rectHeight;
         int h = rotation % 2 == 0 ? rectHeight : rectWidth;
-        float offX = (w - 1) * tilesize / 2f;
-        float offY = (h - 1) * tilesize / 2f;
+        float offX = w * tilesize / 2f;
+        float offY = h * tilesize / 2f;
         Drawf.dashRect(valid ? Pal.accent : Pal.remove, x * tilesize - offX, y * tilesize - offY, w * tilesize, h * tilesize);
     }
 }
