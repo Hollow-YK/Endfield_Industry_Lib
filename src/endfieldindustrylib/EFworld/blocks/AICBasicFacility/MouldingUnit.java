@@ -4,10 +4,12 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class MouldingUnit extends GenericAICBasicFacility {
+
     public MouldingUnit(String name) {
         super(name);
 
         size = 3;
+        powerUsage = 0.16667f;
         requirements(Category.crafting, ItemStack.with(EFitems.originiumOre, 10));
 
         rotate = true;

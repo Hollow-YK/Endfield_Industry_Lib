@@ -4,10 +4,12 @@ import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.type.*;
 
 public class ShreddingUnit extends GenericAICBasicFacility {
+
     public ShreddingUnit(String name) {
         super(name);
 
         size = 3;
+        powerUsage = 0.083345f;
         requirements(Category.crafting, ItemStack.with(EFitems.origocrust, 5));
 
         rotate = true;
