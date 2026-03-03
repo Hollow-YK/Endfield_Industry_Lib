@@ -16,13 +16,13 @@ main: "endfieldindustrylib.Lib"
 description: "欢迎来到终末地工业。
 [[]blue]《终末地工业Lib》是一款将《明日方舟：终末地》的部分物品与设备加入Mindustry的模组。
 [[]green]开发中……
-[[]red]注意！该版本处于开发初期，存在大量Bug与未完成的部分。
+[[]red]注意！该版本处于开发初期，存在大量Bug与未完成的部分。若想要进行游玩，需前往Github Release下载本模组。目前暂未适配手机端。
 [[]green]欢迎前往GitHub Release下载本模组
 [[]red]别急着期待
 "
 
 #the mod version
-version: 0.0.6-Beta
+version: 0.0.7-Beta
 
 #the minimum game build required to run this mod
 minGameVersion: 154
