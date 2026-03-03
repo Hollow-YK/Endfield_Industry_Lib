@@ -26,8 +26,7 @@ public class EFPowerNode extends PowerNode {
     public EFPowerNode(String name) {
         super(name);
         autolink = false;
-        // drawRange = false;
-        maxNodes = -1;
+        maxNodes = Integer.MAX_VALUE;
     }
 
     // 判断是否为电力建筑
