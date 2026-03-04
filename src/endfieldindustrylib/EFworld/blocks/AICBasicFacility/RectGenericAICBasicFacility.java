@@ -1,5 +1,6 @@
 package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
-
+import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Lines;
 import arc.Core;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
@@ -14,6 +15,8 @@ import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.meta.BuildVisibility;
 import mindustry.graphics.Drawf;
+import mindustry.Vars;
+import mindustry.content.Blocks;
 import mindustry.game.Team;
 
 import static mindustry.Vars.tilesize;
@@ -73,7 +76,10 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             public boolean shouldHide() {
                 return true; // 隐藏自身
             }
-
+            @Override
+            public void drawSelect() {
+                master.drawSelect();
+            }
             @Override
             public void draw() {
                 // 不绘制任何内容
@@ -110,18 +116,17 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                 if (master != null) master.damage(damage);
             }
 
-            public boolean consumed = false;
             @Override
             public void tapped() {
-                if (master != null && consumed == false) {
-                    master.tapped();
-                    consumed = true;
-                } else {
-                    master.onConfigureClosed();
-                    consumed = false;
+                if (master != null) {
+                    if (Vars.control.input.config.getSelected() == master) {
+                        Vars.control.input.config.hideConfig();
+                    } else {
+                        Vars.control.input.config.showConfig(master);
+                    }
                 }
             }
-
+                    
             @Override
             public void buildConfiguration(Table table) {
                 if (master != null) master.buildConfiguration(table);
@@ -145,17 +150,16 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         }
     }
 
-    public static RectChildBlock rectChildBlock;
+public static RectChildBlock rectChildBlock;
 
     /**
      * 在 Mod 初始化时调用，用于注册子方块。
      * 重命名 load() 为 registerChildBlock 以避免与 Block.load() 冲突
      */
-    public static void registerChildBlock() {
-        rectChildBlock = new RectChildBlock("rect-child-block");
-        rectChildBlock.load();
-    }
-
+public static void registerChildBlock() {
+    rectChildBlock = new RectChildBlock("rect-child-block");
+    rectChildBlock.load();
+}
     // -------------------------------------------------------------------------
     // 主方块构建类
     // -------------------------------------------------------------------------
@@ -169,8 +173,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             createChildren();
         }
 
-        private int expandX = rotation%2 == 0 ? 0 : Math.abs(rectHeight - rectWidth); // 单侧X轴扩展
-        private int expandY = rotation%2 == 0 ? Math.abs(rectHeight - rectWidth) : 0; // 单侧Y轴扩展
+        //private int expandX = rotation%2 == 0 ? 0 : Math.abs(rectHeight - rectWidth); // 单侧X轴扩展
+        //private int expandY = rotation%2 == 0 ? Math.abs(rectHeight - rectWidth) : 0; // 单侧Y轴扩展
 
         /** 根据主方块的位置和旋转，创建所有子方块 */
         private void createChildren() {
@@ -210,7 +214,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                     } else {
                         // 如果类型不正确，可能是旧存档的建筑，强制替换
                         if (childTile.build != null) {
-                            childTile.build.kill();
+
+                            childTile.setBlock(Blocks.air);
                         }
                         childTile.setBlock(rectChildBlock, team, rotation);
                         if (childTile.build instanceof RectChildBlock.RectChildBuild) {
@@ -225,25 +230,84 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                 }
             }
         }
-
         @Override
         public void onRemoved() {
-            // 移除所有子方块
+            
+
             for (Building child : children) {
-                if (child.isAdded()) child.kill();
+                if (child.isAdded()) child.tile.setBlock(Blocks.air);
             }
             super.onRemoved();
         }
+        @Override
+        public boolean acceptItem(Building source, Item item) {
+            if (source == null || !isAllowedTransport(source)) return false;
 
+            if (acceptList.contains(source)) return findAcceptableInputSlot(item) != -1;
+
+            int dx = 0, dy = 0;
+            switch (rotation) {
+                case 1: dy = -1; break; // 下
+                case 2: dx = 1; break;  // 右
+                case 3: dy = 1; break;  // 上
+                case 0: dx = -1; break; // 左
+            }
+
+            // 根据旋转计算当前宽度和高度
+            boolean rotated = rotation % 2 != 0;
+            int w = rotated ? rectHeight : rectWidth;
+            int h = rotated ? rectWidth : rectHeight;
+
+            int minX = tileX() - w/2;
+            int maxX = tileX() + (w % 2 == 0 ? w/2 - 1 : w/2);
+            int minY = tileY() - h/2;
+            int maxY = tileY() + (h % 2 == 0 ? h/2 - 1 : h/2);
+
+            // 后方一排的坐标
+            int checkX = (dx <= 0) ? minX + dx : maxX + dx;
+            int checkY = (dy <= 0) ? minY + dy : maxY + dy;
+
+            if (rotation % 2 == 0) {
+                // 偶数旋转：遍历 Y 方向（竖直一排）
+                for (int y = minY; y <= maxY; y++) {
+                    if (source == Vars.world.tile(checkX, y).build) {
+                        acceptList.add(source);
+                        return findAcceptableInputSlot(item) != -1;
+                    }
+                }
+            } else {
+                // 奇数旋转：遍历 X 方向（水平一排）
+                for (int x = minX; x <= maxX; x++) {
+                    if (source == Vars.world.tile(x, checkY).build) {
+                        acceptList.add(source);
+                        return findAcceptableInputSlot(item) != -1;
+                    }
+                }
+            }
+            return false;
+        }
         // 可选：在绘制时添加整个矩形的边框效果
         @Override
-        public void drawSelect() {
-            super.drawSelect();
+        public void drawConfigure() {
             int w = rotation % 2 == 0 ? rectWidth : rectHeight;
             int h = rotation % 2 == 0 ? rectHeight : rectWidth;
             float offX = w * tilesize / 2f;
             float offY = h * tilesize / 2f;
-            Drawf.dashRect(Pal.accent, x - offX, y - offY, w * tilesize, h * tilesize);
+            Draw.color(Pal.accent);
+            Lines.stroke(1.0F);
+            Lines.rect( x - offX, y - offY, w * tilesize, h * tilesize);
+            Draw.reset();
+        }
+        @Override
+        public void drawSelect() {
+            super.drawSelect();
+            Draw.color(Pal.accent);
+            Lines.stroke(1.0F);
+            int w = rotation % 2 == 0 ? rectWidth : rectHeight;
+            int h = rotation % 2 == 0 ? rectHeight : rectWidth;
+            float offX = w * tilesize / 2f;
+            float offY = h * tilesize / 2f;
+            Lines.rect( x - offX, y - offY, w * tilesize, h * tilesize);
         }
     }
 
@@ -265,7 +329,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         return super.canPlaceOn(tile, team, rotation);
         
     }
-
+    
     @Override
     public void drawPlace(int x, int y, int rotation, boolean valid) {
         int w = rotation % 2 == 0 ? rectWidth : rectHeight;

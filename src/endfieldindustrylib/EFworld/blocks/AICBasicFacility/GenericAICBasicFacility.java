@@ -22,7 +22,8 @@ import endfieldindustrylib.EFworld.blocks.AICTransport.Splitter;
 import endfieldindustrylib.EFworld.blocks.AICTransport.TransportBelt;
 import endfieldindustrylib.ui.GridItemsDisplay;
 
-import java.util.function.Consumer;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 通用多槽位工厂基类。
@@ -44,9 +45,6 @@ public class GenericAICBasicFacility extends GenericCrafter {
     public SlotDef[] outputSlotDefs = {};
     public Recipe[] recipes = {};
     public float powerUsage = 0.083345f;
-
-    // 静态回调，用于显示自定义配置面板（由 Mod 主类注册）
-    public static Consumer<GenericAICBasicFacilityBuild> showConfigHandler;
 
     public static class SlotDef {
         public Item item; // null 表示通用槽位
@@ -449,6 +447,22 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
         }
 
+
+
+        List<Building> acceptList = new ArrayList<>();
+        int lastRotation =0;
+        @Override
+        public void update(){
+            super.update();
+            if(lastRotation!=rotation){
+                lastRotation=rotation;
+                acceptList.clear();
+            }
+            if (acceptList.size() >= size) {
+                acceptList.removeIf(i -> Vars.world.tile(i.tileX(), i.tileY()).build != i);
+            }
+        }
+
         @Override public void handleItem(Building source, Item item) {
             int idx = findAcceptableInputSlot(item);
             if (idx != -1) inputSlots[idx].add(item, 1);
@@ -456,20 +470,44 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         @Override public boolean acceptItem(Building source, Item item) {
             if (source == null || !isAllowedTransport(source)) return false;
-            int worldDir = relativeTo(source); // 世界方向：0上,1右,2下,3左
-            // 转换为相对于建筑的方向：localDir = (worldDir - rotation + 4) % 4
-            int localDir = (worldDir - rotation + 4) % 4;
-            if ((inputFacingMask & (1 << localDir)) == 0) return false;
-            return findAcceptableInputSlot(item) != -1;
-        }
 
-        // 浮动面板
-        @Override public void tapped() {
-            if (showConfigHandler != null) {
-                showConfigHandler.accept(this);
-            } else {
-                super.tapped();
+            // 如果之前已经接受过该来源，直接允许（可能用于连续传输）
+            if (acceptList.contains(source)) return findAcceptableInputSlot(item) != -1;
+            int dx = 0, dy = 0;
+            // 计算后方相邻格子的偏移
+            switch (rotation) {
+                case 1: dy = -1; break; // 下
+                case 2: dx = 1; break;  // 右
+                case 3: dy = 1; break;  // 上
+                case 0: dx = -1; break; // 左
             }
+
+            // 检查 source 是否位于方块后方紧邻的一排（宽度等于方块大小）
+            // 方块占据的格子范围（以 tileX, tileY 为中心）
+            int half = size / 2;
+            int minX = tileX() - half;
+            int maxX = tileX() + (size % 2 == 0 ? half - 1 : half);
+            int minY = tileY() - half;
+            int maxY = tileY() + (size % 2 == 0 ? half - 1 : half);
+
+            int checkX = (dx<=0)? minX + dx:maxX+dx;
+            int checkY = (dy<=0)?minY + dy:maxY+dy;
+            if (rotation%2==0) {
+                for(int y =minY;y<=maxY;y++){
+                    if(source==Vars.world.tile(checkX,y).build){
+                        acceptList.add(source); 
+                        return findAcceptableInputSlot(item) != -1;
+                    }
+                }
+            }else{
+                for(int x =minX;x<=maxX;x++){
+                    if(source==Vars.world.tile(x,checkY).build){
+                        acceptList.add(source); 
+                        return findAcceptableInputSlot(item) != -1;
+                    }
+                }
+            }
+            return false;
         }
 
         // 浮动面板
