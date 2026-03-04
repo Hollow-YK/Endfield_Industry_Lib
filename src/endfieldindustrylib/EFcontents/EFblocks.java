@@ -1,6 +1,7 @@
 package endfieldindustrylib.EFcontents;
 
 import endfieldindustrylib.EFworld.blocks.AICBasicFacility.*;
+import endfieldindustrylib.EFworld.blocks.AICDepotAccess.ProtocolStash;
 import endfieldindustrylib.EFworld.blocks.AICPower.*;
 import endfieldindustrylib.EFworld.blocks.AICTransport.*;
 
@@ -14,6 +15,7 @@ public class EFblocks {
         new Splitter("splitter").load();                         // 分流器
         new BeltBridge("belt-bridge").load();                    // 物流桥
         new Converger("converger").load();                       // 汇流器
+        new ProtocolStash("protocol-stash").load();              // 协议储存箱
         // 基础生产
         new SeedPickingUnit("seed-picking-unit").load();          //采种机
         new PlantingUnit("planting-unit").load();                 //种植机
