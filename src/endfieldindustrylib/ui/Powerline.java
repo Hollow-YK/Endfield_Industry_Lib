@@ -2,6 +2,9 @@ package endfieldindustrylib.ui;
 
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
+import arc.scene.event.Touchable;
+import arc.scene.ui.Label;
+import arc.scene.ui.layout.Table;
 import arc.graphics.Color;
 import arc.Core;
 import java.util.ArrayList;
@@ -98,16 +101,19 @@ public class Powerline {
 
         int mouseTileX = (int) Math.rint(Core.input.mouseWorldX() / Vars.tilesize);
         int mouseTileY = (int) Math.rint(Core.input.mouseWorldY() / Vars.tilesize);
-
-        lest = findPath((int) build.tileX(), (int) build.tileY(), mouseTileX, mouseTileY);
-
+        Building select = Vars.world.tile(mouseTileX, mouseTileY).build;
+        if(select==null){
+            lest = findPath((int) build.tileX(), (int) build.tileY(), mouseTileX, mouseTileY);
+        }else{
+            lest = findPath((int) build.tileX(), (int) build.tileY(), select.tileX(),select.tileY());
+        }
         if (lest.isEmpty() || lest == null) {
             return -1;
         } else {
             Lines.stroke(2f);
             for (int i = 0; i < lest.size() - 1; i++) {
                 Draw.z(100);
-                if (lest.size() < 60) {
+                if (lest.size() <= 60) {
                     Draw.color(Color.yellow);
                 } else {
                     Draw.color(Color.red);
@@ -132,7 +138,21 @@ public class Powerline {
         Draw.reset();
         return lest.size();
     }
-
+    private static Table tablename= new Table();
+    public void showText(Label label){
+        tablename.clearChildren();    
+        tablename.add(label).pad(4f);
+        label.setStyle(mindustry.ui.Styles.outlineLabel);    
+        tablename.setFillParent(false); // 不填充父级，手动控制位置
+        tablename.touchable = Touchable.disabled;
+        Core.scene.add(tablename);
+    }
+    public void fallowMouse(){
+        tablename.setPosition(Core.input.mouseX(), Core.input.mouseY() + 15);
+    }
+    public void removeText(){
+        tablename.remove();
+    }
     public int canpowerline(Building build, Building other) {
         lest = findPath((int) build.tileX(), (int) build.tileY(), (int) other.tileX(), (int) other.tileY());
         if (lest.isEmpty() || lest == null) {
