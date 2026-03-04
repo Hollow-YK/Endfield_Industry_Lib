@@ -54,6 +54,8 @@ public class TransportBelt extends Conveyor {
         @Override
         public void created() {
             super.created();
+            inputDir = (rotation + 2) % 4;
+            /* 暂且不用
             // 放置时自动确定输入方向：优先后方，其次右侧，再次左侧，默认后方
             int back = (rotation + 2) % 4; // 后方
             int right = (rotation + 1) % 4; // 右侧
@@ -76,7 +78,7 @@ public class TransportBelt extends Conveyor {
                         inputDir = back;
                     }
                 }
-            }
+            }*/
         }
 
         @Override
