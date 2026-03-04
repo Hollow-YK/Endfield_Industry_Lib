@@ -35,7 +35,8 @@ import java.util.List;
  * - 点击建筑显示所有槽位（输入左，输出右，中间箭头）
  * - 输入槽位中，一种物品仅允许占一个槽位
  * - 输出并发：同一输出槽可同时向多个方向输出
- * - 仅与自定义传送带系列方块交互（TransportBelt, ItemControlPort, Splitter, BeltBridge, Converger）
+ * - 仅与自定义传送带系列方块交互（TransportBelt, ItemControlPort, Splitter, BeltBridge,
+ * Converger）
  * - 电力消耗：默认5/s，无论是否工作，供电不足时停止生产并清空进度
  */
 public class GenericAICBasicFacility extends GenericCrafter {
@@ -48,26 +49,32 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
     public static class SlotDef {
         public Item item; // null 表示通用槽位
-        public SlotDef(Item item) { this.item = item; }
+
+        public SlotDef(Item item) {
+            this.item = item;
+        }
     }
 
     public static class Recipe {
         public ItemStack[] input;
         public ItemStack[] output;
         public float craftTime;
+
         public Recipe(ItemStack[] input, ItemStack[] output, float craftTime) {
-            this.input = input; this.output = output; this.craftTime = craftTime;
+            this.input = input;
+            this.output = output;
+            this.craftTime = craftTime;
         }
     }
 
     public GenericAICBasicFacility(String name) {
         super(name);
-        update = true; 
-        solid = true; 
+        update = true;
+        solid = true;
         hasItems = true;
         hasLiquids = false;
         hasPower = true;
-        configurable = true; 
+        configurable = true;
         ambientSound = Sounds.loopMachine;
         sync = true;
         flags = EnumSet.of(BlockFlag.factory);
@@ -79,11 +86,12 @@ public class GenericAICBasicFacility extends GenericCrafter {
     public void setStats() {
         super.setStats();
         if (recipes.length > 0) {
-            stats.add( Stat.output, table -> {
+            stats.add(Stat.output, table -> {
                 table.table(recipesTable -> {
                     for (int i = 0; i < recipes.length; i++) {
                         Recipe r = recipes[i];
-                        if (i > 0) recipesTable.row(); // 配方之间添加分隔
+                        if (i > 0)
+                            recipesTable.row(); // 配方之间添加分隔
 
                         recipesTable.table(line -> {
                             // 输入物品：将 r.input 转换为 GridItemsDisplay.Slot 数组
@@ -120,22 +128,26 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
     @Override
     public void setBars() {
-        super.setBars(); removeBar("liquid"); removeBar("items");
+        super.setBars();
+        removeBar("liquid");
+        removeBar("items");
         addBar("progress", (GenericAICBasicFacilityBuild e) -> new Bar("bar.progress", Pal.ammo, e::progress));
         // 电力条会自动添加，因为 hasPower = true
     }
 
-    @Override public void init() {
+    @Override
+    public void init() {
         // 【新增】配置电力消耗（必须位于 super.init() 之前）
         consumePower(powerUsage);
-        
+
         if (recipes != null) {
             for (Recipe recipe : recipes) {
                 if (recipe.input.length > inputSlotDefs.length)
                     throw new IllegalArgumentException("Recipe input count exceeds input slots");
                 for (int i = 0; i < recipe.input.length; i++) {
                     ItemStack stack = recipe.input[i];
-                    if (stack.amount > 50) throw new IllegalArgumentException("Input amount >50 at slot " + i);
+                    if (stack.amount > 50)
+                        throw new IllegalArgumentException("Input amount >50 at slot " + i);
                     if (inputSlotDefs[i].item != null && inputSlotDefs[i].item != stack.item)
                         throw new IllegalArgumentException("Input item mismatch at slot " + i);
                 }
@@ -143,7 +155,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
                     throw new IllegalArgumentException("Recipe output count exceeds output slots");
                 for (int i = 0; i < recipe.output.length; i++) {
                     ItemStack stack = recipe.output[i];
-                    if (stack.amount > 50) throw new IllegalArgumentException("Output amount >50 at slot " + i);
+                    if (stack.amount > 50)
+                        throw new IllegalArgumentException("Output amount >50 at slot " + i);
                     if (outputSlotDefs[i].item != null && outputSlotDefs[i].item != stack.item)
                         throw new IllegalArgumentException("Output item mismatch at slot " + i);
                 }
@@ -152,7 +165,10 @@ public class GenericAICBasicFacility extends GenericCrafter {
         super.init();
     }
 
-    @Override public boolean outputsItems() { return true; }
+    @Override
+    public boolean outputsItems() {
+        return true;
+    }
 
     public class GenericAICBasicFacilityBuild extends Building {
         public Slot[] inputSlots, outputSlots;
@@ -169,15 +185,17 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         public GenericAICBasicFacilityBuild() {
             inputSlots = new Slot[inputSlotDefs.length];
-            for (int i = 0; i < inputSlotDefs.length; i++) inputSlots[i] = new Slot(inputSlotDefs[i].item);
+            for (int i = 0; i < inputSlotDefs.length; i++)
+                inputSlots[i] = new Slot(inputSlotDefs[i].item);
             outputSlots = new Slot[outputSlotDefs.length];
-            for (int i = 0; i < outputSlotDefs.length; i++) outputSlots[i] = new Slot(outputSlotDefs[i].item);
+            for (int i = 0; i < outputSlotDefs.length; i++)
+                outputSlots[i] = new Slot(outputSlotDefs[i].item);
             lastOutputIndex = new int[outputSlotDefs.length];
         }
 
         public class Slot {
             public final Item fixedType; // null = 通用
-            public Item currentItem;      // 当前存放的物品类型（仅当fixedType==null且非空时有效）
+            public Item currentItem; // 当前存放的物品类型（仅当fixedType==null且非空时有效）
             public int amount;
             public final int maxAmount = 50;
 
@@ -187,7 +205,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
 
             public boolean accepts(Item item) {
-                if (fixedType != null) return item == fixedType && amount < maxAmount;
+                if (fixedType != null)
+                    return item == fixedType && amount < maxAmount;
                 // 通用槽位：为空可接受任何物品；非空只能接受与当前物品相同的物品
                 return (amount == 0 || currentItem == item) && amount < maxAmount;
             }
@@ -195,7 +214,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
             public int add(Item item, int count) {
                 int added = Math.min(count, maxAmount - amount);
                 if (added > 0) {
-                    if (amount == 0) currentItem = item;
+                    if (amount == 0)
+                        currentItem = item;
                     amount += added;
                 }
                 return added;
@@ -204,12 +224,14 @@ public class GenericAICBasicFacility extends GenericCrafter {
             public int remove(int count) {
                 int removed = Math.min(count, amount);
                 amount -= removed;
-                if (amount == 0) currentItem = null;
+                if (amount == 0)
+                    currentItem = null;
                 return removed;
             }
 
             public boolean has(Item item, int count) {
-                if (fixedType != null) return fixedType == item && amount >= count;
+                if (fixedType != null)
+                    return fixedType == item && amount >= count;
                 return currentItem == item && amount >= count;
             }
         }
@@ -217,16 +239,17 @@ public class GenericAICBasicFacility extends GenericCrafter {
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
         public boolean isAllowedTransport(Building other) {
             return other instanceof TransportBelt.TransportBeltBuild ||
-                   other instanceof ItemControlPort.ItemControlPortBuild ||
-                   other instanceof Splitter.SplitterBuild ||
-                   other instanceof BeltBridge.BeltBridgeBuild ||
-                   other instanceof Converger.ConvergerBuild;
+                    other instanceof ItemControlPort.ItemControlPortBuild ||
+                    other instanceof Splitter.SplitterBuild ||
+                    other instanceof BeltBridge.BeltBridgeBuild ||
+                    other instanceof Converger.ConvergerBuild;
         }
 
-        @Override public void updateTile() {
+        @Override
+        public void updateTile() {
             // 供电不足时清空进度，停止生产，输出仍进行
             boolean powerOk = power != null && power.status >= 1f - 0.001f; // 允许微小浮点误差
-            
+
             if (powerOk) {
                 // 供电正常：执行原有生产逻辑
                 if (currentRecipe == null || !checkAndAssignCurrentRecipe()) {
@@ -237,7 +260,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
                     float inc = getProgressIncrease(currentRecipe.craftTime);
                     progress += inc;
                     warmup = Mathf.approachDelta(warmup, 1f, 0.019f);
-                    if (progress >= 1f) craft();
+                    if (progress >= 1f)
+                        craft();
                 } else {
                     warmup = Mathf.approachDelta(warmup, 0f, 0.019f);
                 }
@@ -251,13 +275,17 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         /**
          * 尝试为当前配方重新分配槽位。
-         * @return 如果分配成功则更新 currentInputAssignment 和 currentOutputAssignment 并返回 true，否则返回 false
+         * 
+         * @return 如果分配成功则更新 currentInputAssignment 和 currentOutputAssignment 并返回
+         *         true，否则返回 false
          */
         private boolean checkAndAssignCurrentRecipe() {
-            if (currentRecipe == null) return false;
+            if (currentRecipe == null)
+                return false;
             int[] tempInputAssign = new int[currentRecipe.input.length];
             int[] tempOutputAssign = new int[currentRecipe.output.length];
-            if (tryAssignInputs(currentRecipe.input, tempInputAssign) && tryAssignOutputs(currentRecipe.output, tempOutputAssign)) {
+            if (tryAssignInputs(currentRecipe.input, tempInputAssign)
+                    && tryAssignOutputs(currentRecipe.output, tempOutputAssign)) {
                 currentInputAssignment = tempInputAssign;
                 currentOutputAssignment = tempOutputAssign;
                 return true;
@@ -269,12 +297,14 @@ public class GenericAICBasicFacility extends GenericCrafter {
          * 查找第一个可用的配方，并设置 currentRecipe 及分配数组。
          */
         public void findRecipe() {
-            if (recipes == null) return;
+            if (recipes == null)
+                return;
             for (int i = 0; i < recipes.length; i++) {
                 Recipe recipe = recipes[i];
                 int[] tempInputAssign = new int[recipe.input.length];
                 int[] tempOutputAssign = new int[recipe.output.length];
-                if (tryAssignInputs(recipe.input, tempInputAssign) && tryAssignOutputs(recipe.output, tempOutputAssign)) {
+                if (tryAssignInputs(recipe.input, tempInputAssign)
+                        && tryAssignOutputs(recipe.output, tempOutputAssign)) {
                     currentRecipe = recipe;
                     currentRecipeIndex = i;
                     currentInputAssignment = tempInputAssign;
@@ -291,21 +321,25 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         /** 尝试为输入需求分配槽位（回溯算法） */
         private boolean tryAssignInputs(ItemStack[] required, int[] assignment) {
-            if (required.length == 0) return true;
+            if (required.length == 0)
+                return true;
             boolean[] used = new boolean[inputSlots.length];
             return backtrackInput(0, required, assignment, used);
         }
 
         private boolean backtrackInput(int idx, ItemStack[] required, int[] assignment, boolean[] used) {
-            if (idx == required.length) return true;
+            if (idx == required.length)
+                return true;
             ItemStack req = required[idx];
             for (int i = 0; i < inputSlots.length; i++) {
-                if (used[i]) continue;
+                if (used[i])
+                    continue;
                 Slot slot = inputSlots[i];
                 if (slot.has(req.item, req.amount)) {
                     used[i] = true;
                     assignment[idx] = i;
-                    if (backtrackInput(idx + 1, required, assignment, used)) return true;
+                    if (backtrackInput(idx + 1, required, assignment, used))
+                        return true;
                     used[i] = false;
                 }
             }
@@ -314,21 +348,25 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         /** 尝试为输出需求分配槽位（回溯算法） */
         private boolean tryAssignOutputs(ItemStack[] produced, int[] assignment) {
-            if (produced.length == 0) return true;
+            if (produced.length == 0)
+                return true;
             boolean[] used = new boolean[outputSlots.length];
             return backtrackOutput(0, produced, assignment, used);
         }
 
         private boolean backtrackOutput(int idx, ItemStack[] produced, int[] assignment, boolean[] used) {
-            if (idx == produced.length) return true;
+            if (idx == produced.length)
+                return true;
             ItemStack prod = produced[idx];
             for (int i = 0; i < outputSlots.length; i++) {
-                if (used[i]) continue;
+                if (used[i])
+                    continue;
                 Slot slot = outputSlots[i];
                 if (canOutputAccept(slot, prod.item, prod.amount)) {
                     used[i] = true;
                     assignment[idx] = i;
-                    if (backtrackOutput(idx + 1, produced, assignment, used)) return true;
+                    if (backtrackOutput(idx + 1, produced, assignment, used))
+                        return true;
                     used[i] = false;
                 }
             }
@@ -337,8 +375,10 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         /** 判断输出槽位是否能容纳指定物品及数量 */
         private boolean canOutputAccept(Slot slot, Item item, int amount) {
-            if (slot.fixedType != null && slot.fixedType != item) return false;
-            if (slot.fixedType == null && slot.amount > 0 && slot.currentItem != item) return false;
+            if (slot.fixedType != null && slot.fixedType != item)
+                return false;
+            if (slot.fixedType == null && slot.amount > 0 && slot.currentItem != item)
+                return false;
             return slot.amount + amount <= slot.maxAmount;
         }
 
@@ -350,7 +390,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         public void craft() {
-            if (currentRecipe == null) return;
+            if (currentRecipe == null)
+                return;
             // 消耗输入
             for (int i = 0; i < currentRecipe.input.length; i++) {
                 ItemStack req = currentRecipe.input[i];
@@ -375,7 +416,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
          * 使用 lastOutputIndex 记录每个槽上次输出的建筑索引，实现轮询公平性。
          */
         public void dumpOutputs() {
-            if (!timer(timerDump, dumpTime / timeScale)) return;
+            if (!timer(timerDump, dumpTime / timeScale))
+                return;
 
             // 确保 lastOutputIndex 长度与当前输出槽一致（防止配置变更）
             if (lastOutputIndex.length != outputSlots.length) {
@@ -385,11 +427,13 @@ public class GenericAICBasicFacility extends GenericCrafter {
             // 获取相邻建筑列表并转为数组（便于按索引访问）
             Building[] neighbors = proximity.toArray(Building.class);
             int n = neighbors.length;
-            if (n == 0) return;
+            if (n == 0)
+                return;
 
             for (int slotIdx = 0; slotIdx < outputSlots.length; slotIdx++) {
                 Slot slot = outputSlots[slotIdx];
-                if (slot.amount <= 0 || slot.currentItem == null) continue;
+                if (slot.amount <= 0 || slot.currentItem == null)
+                    continue;
                 Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
 
                 int startIdx = lastOutputIndex[slotIdx] % n; // 从上一次的位置开始
@@ -400,14 +444,17 @@ public class GenericAICBasicFacility extends GenericCrafter {
                     for (int i = 0; i < n; i++) {
                         int idx = (startIdx + i) % n;
                         Building other = neighbors[idx];
-                        if (other == null || other.team != team) continue;
+                        if (other == null || other.team != team)
+                            continue;
 
                         // 方向检查（相对于建筑朝向）
                         int worldDir = relativeTo(other);
                         int localDir = (worldDir - rotation + 4) % 4;
-                        if ((outputFacingMask & (1 << localDir)) == 0) continue;
+                        if ((outputFacingMask & (1 << localDir)) == 0)
+                            continue;
 
-                        if (!isAllowedTransport(other)) continue;
+                        if (!isAllowedTransport(other))
+                            continue;
 
                         if (other.acceptItem(this, item)) {
                             other.handleItem(this, item);
@@ -419,7 +466,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
                             break; // 输出成功，继续尝试下一个物品
                         }
                     }
-                    if (!found) break; // 没有建筑可接受，退出循环
+                    if (!found)
+                        break; // 没有建筑可接受，退出循环
                 }
             }
         }
@@ -427,9 +475,11 @@ public class GenericAICBasicFacility extends GenericCrafter {
         public int findAcceptableInputSlot(Item item) {
             IntSeq candidates = new IntSeq();
             for (int i = 0; i < inputSlots.length; i++) {
-                if (inputSlots[i].accepts(item)) candidates.add(i);
+                if (inputSlots[i].accepts(item))
+                    candidates.add(i);
             }
-            if (candidates.size == 0) return -1;
+            if (candidates.size == 0)
+                return -1;
             IntSeq occupied = new IntSeq();
             for (int i = 0; i < candidates.size; i++) {
                 int idx = candidates.get(i);
@@ -438,7 +488,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
                     occupied.add(idx);
                 }
             }
-            if (occupied.size > 1) return -1;
+            if (occupied.size > 1)
+                return -1;
             if (occupied.size == 1) {
                 int idx = occupied.get(0);
                 return inputSlots[idx].amount < inputSlots[idx].maxAmount ? idx : -1;
@@ -447,15 +498,14 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
         }
 
-
-
         List<Building> acceptList = new ArrayList<>();
-        int lastRotation =0;
+        int lastRotation = 0;
+
         @Override
-        public void update(){
+        public void update() {
             super.update();
-            if(lastRotation!=rotation){
-                lastRotation=rotation;
+            if (lastRotation != rotation) {
+                lastRotation = rotation;
                 acceptList.clear();
             }
             if (acceptList.size() >= size) {
@@ -463,23 +513,36 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
         }
 
-        @Override public void handleItem(Building source, Item item) {
+        @Override
+        public void handleItem(Building source, Item item) {
             int idx = findAcceptableInputSlot(item);
-            if (idx != -1) inputSlots[idx].add(item, 1);
+            if (idx != -1)
+                inputSlots[idx].add(item, 1);
         }
 
-        @Override public boolean acceptItem(Building source, Item item) {
-            if (source == null || !isAllowedTransport(source)) return false;
+        @Override
+        public boolean acceptItem(Building source, Item item) {
+            if (source == null || !isAllowedTransport(source))
+                return false;
 
             // 如果之前已经接受过该来源，直接允许（可能用于连续传输）
-            if (acceptList.contains(source)) return findAcceptableInputSlot(item) != -1;
+            if (acceptList.contains(source))
+                return findAcceptableInputSlot(item) != -1;
             int dx = 0, dy = 0;
             // 计算后方相邻格子的偏移
             switch (rotation) {
-                case 1: dy = -1; break; // 下
-                case 2: dx = 1; break;  // 右
-                case 3: dy = 1; break;  // 上
-                case 0: dx = -1; break; // 左
+                case 1:
+                    dy = -1;
+                    break; // 下
+                case 2:
+                    dx = 1;
+                    break; // 右
+                case 3:
+                    dy = 1;
+                    break; // 上
+                case 0:
+                    dx = -1;
+                    break; // 左
             }
 
             // 检查 source 是否位于方块后方紧邻的一排（宽度等于方块大小）
@@ -490,19 +553,19 @@ public class GenericAICBasicFacility extends GenericCrafter {
             int minY = tileY() - half;
             int maxY = tileY() + (size % 2 == 0 ? half - 1 : half);
 
-            int checkX = (dx<=0)? minX + dx:maxX+dx;
-            int checkY = (dy<=0)?minY + dy:maxY+dy;
-            if (rotation%2==0) {
-                for(int y =minY;y<=maxY;y++){
-                    if(source==Vars.world.tile(checkX,y).build){
-                        acceptList.add(source); 
+            int checkX = (dx <= 0) ? minX + dx : maxX + dx;
+            int checkY = (dy <= 0) ? minY + dy : maxY + dy;
+            if (rotation % 2 == 0) {
+                for (int y = minY; y <= maxY; y++) {
+                    if (source == Vars.world.tile(checkX, y).build) {
+                        acceptList.add(source);
                         return findAcceptableInputSlot(item) != -1;
                     }
                 }
-            }else{
-                for(int x =minX;x<=maxX;x++){
-                    if(source==Vars.world.tile(x,checkY).build){
-                        acceptList.add(source); 
+            } else {
+                for (int x = minX; x <= maxX; x++) {
+                    if (source == Vars.world.tile(x, checkY).build) {
+                        acceptList.add(source);
                         return findAcceptableInputSlot(item) != -1;
                     }
                 }
@@ -511,7 +574,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         // 浮动面板
-        @Override public void buildConfiguration(Table table) {
+        @Override
+        public void buildConfiguration(Table table) {
             // 创建内部面板，用于统一设置背景
             Table panel = new Table();
             panel.setBackground(new TextureRegionDrawable(Core.atlas.white()).tint(new Color(0, 0, 0, 0.5f)));
@@ -523,7 +587,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
                 main.add(inTable).left();
 
                 // 间隔
-                //main.add().width(20);
+                // main.add().width(20);
 
                 // 箭头
                 Label arrowLabel = new Label("->");
@@ -560,35 +624,56 @@ public class GenericAICBasicFacility extends GenericCrafter {
                 // 让输入/输出显示组件填充剩余宽度，避免溢出
                 inTable.add(inputDisplay).growX().left();
                 outTable.add(outputDisplay).growX().right();
-            }).pad(10).growX();  // 主表格内边距并水平扩展
+            }).pad(10).growX(); // 主表格内边距并水平扩展
 
             panel.row();
 
             // 进度条：使用 growX() 使其宽度与面板一致，避免右侧空白
             panel.add(new Bar("bar.progress", Pal.ammo, () -> progress))
-                .width(200f)
-                .height(18f)
-                .pad(4)
-                .center();
+                    .width(200f)
+                    .height(18f)
+                    .pad(4)
+                    .center();
 
             // 将面板添加到外部 table 并使其填充整个可用区域
             table.add(panel).grow();
         }
 
-        @Override public boolean shouldConsume() { return currentRecipe != null && canUseRecipe(currentRecipe); }
-        @Override public float warmup() { return warmup; }
-        @Override public float progress() { return progress; }
-        @Override public float totalProgress() { return progress; }
+        @Override
+        public boolean shouldConsume() {
+            return currentRecipe != null && canUseRecipe(currentRecipe);
+        }
 
-        @Override public byte version() {
+        @Override
+        public float warmup() {
+            return warmup;
+        }
+
+        @Override
+        public float progress() {
+            return progress;
+        }
+
+        @Override
+        public float totalProgress() {
+            return progress;
+        }
+
+        @Override
+        public byte version() {
             return 1; // 增加版本号以支持 lastOutputIndex
         }
 
-        @Override public void write(Writes write) {
+        @Override
+        public void write(Writes write) {
             super.write(write);
-            write.f(progress); write.f(warmup); write.i(currentRecipeIndex);
-            for (Slot s : inputSlots) write.i(s.amount);
-            for (Slot s : outputSlots) write.i(s.amount);
+            write.f(progress);
+            write.f(warmup);
+            write.i(currentRecipeIndex);
+            for (Slot s : inputSlots)
+                write.i(s.amount);
+            for (Slot s : outputSlots)
+                write.i(s.amount);
             for (Slot s : inputSlots) {
                 if (s.fixedType == null) {
                     write.s(s.currentItem == null ? -1 : s.currentItem.id);
@@ -606,12 +691,19 @@ public class GenericAICBasicFacility extends GenericCrafter {
             }
         }
 
-        @Override public void read(Reads read, byte revision) {
+        @Override
+        public void read(Reads read, byte revision) {
             super.read(read, revision);
-            progress = read.f(); warmup = read.f(); currentRecipeIndex = read.i();
-            currentRecipe = (currentRecipeIndex >= 0 && currentRecipeIndex < recipes.length) ? recipes[currentRecipeIndex] : null;
-            for (Slot s : inputSlots) s.amount = read.i();
-            for (Slot s : outputSlots) s.amount = read.i();
+            progress = read.f();
+            warmup = read.f();
+            currentRecipeIndex = read.i();
+            currentRecipe = (currentRecipeIndex >= 0 && currentRecipeIndex < recipes.length)
+                    ? recipes[currentRecipeIndex]
+                    : null;
+            for (Slot s : inputSlots)
+                s.amount = read.i();
+            for (Slot s : outputSlots)
+                s.amount = read.i();
             for (Slot s : inputSlots) {
                 if (s.fixedType == null) {
                     int id = read.s();

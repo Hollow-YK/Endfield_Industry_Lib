@@ -10,7 +10,7 @@ public class PlantingUnit extends GenericAICBasicFacility {
 
         size = 5;
         powerUsage = 0.333335f;
-        requirements(Category.production, ItemStack.with(EFitems.amethystPart, 20, EFitems.carbon, 10));
+        requirements(Category.crafting, ItemStack.with(EFitems.amethystPart, 20, EFitems.carbon, 10));
 
         rotate = true;
         inputFacingMask = 1 << 2;

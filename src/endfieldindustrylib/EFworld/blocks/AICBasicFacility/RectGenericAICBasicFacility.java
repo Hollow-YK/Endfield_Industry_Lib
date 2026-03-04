@@ -1,4 +1,5 @@
 package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
+
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Lines;
 import arc.Core;
@@ -33,6 +34,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
 
     /**
      * 构造一个矩形多块工厂。
+     * 
      * @param name   方块ID
      * @param width  原始宽度（格）
      * @param height 原始高度（格）
@@ -51,9 +53,9 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             super(name);
             update = true;
             solid = true;
-            configurable = false;          // 子方块不可单独配置
+            configurable = false; // 子方块不可单独配置
             buildVisibility = BuildVisibility.hidden; // 隐藏，防止手动放置
-            ambientSound = Sounds.none;     // 子方块不发声
+            ambientSound = Sounds.none; // 子方块不发声
             buildType = RectChildBuild::new;
             placeablePlayer = false;
             health = -1;
@@ -76,10 +78,12 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             public boolean shouldHide() {
                 return true; // 隐藏自身
             }
+
             @Override
             public void drawSelect() {
                 master.drawSelect();
             }
+
             @Override
             public void draw() {
                 // 不绘制任何内容
@@ -93,7 +97,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
 
             @Override
             public void handleItem(Building source, Item item) {
-                if (master != null) master.handleItem(source, item);
+                if (master != null)
+                    master.handleItem(source, item);
             }
 
             @Override
@@ -103,7 +108,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
 
             @Override
             public void handleLiquid(Building source, Liquid liquid, float amount) {
-                if (master != null) master.handleLiquid(source, liquid, amount);
+                if (master != null)
+                    master.handleLiquid(source, liquid, amount);
             }
 
             @Override
@@ -113,7 +119,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
 
             @Override
             public void damage(float damage) {
-                if (master != null) master.damage(damage);
+                if (master != null)
+                    master.damage(damage);
             }
 
             @Override
@@ -126,10 +133,11 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                     }
                 }
             }
-                    
+
             @Override
             public void buildConfiguration(Table table) {
-                if (master != null) master.buildConfiguration(table);
+                if (master != null)
+                    master.buildConfiguration(table);
             }
 
             // ---------- 保存/加载 ----------
@@ -150,16 +158,17 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         }
     }
 
-public static RectChildBlock rectChildBlock;
+    public static RectChildBlock rectChildBlock;
 
     /**
      * 在 Mod 初始化时调用，用于注册子方块。
      * 重命名 load() 为 registerChildBlock 以避免与 Block.load() 冲突
      */
-public static void registerChildBlock() {
-    rectChildBlock = new RectChildBlock("rect-child-block");
-    rectChildBlock.load();
-}
+    public static void registerChildBlock() {
+        rectChildBlock = new RectChildBlock("rect-child-block");
+        rectChildBlock.load();
+    }
+
     // -------------------------------------------------------------------------
     // 主方块构建类
     // -------------------------------------------------------------------------
@@ -173,8 +182,10 @@ public static void registerChildBlock() {
             createChildren();
         }
 
-        //private int expandX = rotation%2 == 0 ? 0 : Math.abs(rectHeight - rectWidth); // 单侧X轴扩展
-        //private int expandY = rotation%2 == 0 ? Math.abs(rectHeight - rectWidth) : 0; // 单侧Y轴扩展
+        // private int expandX = rotation%2 == 0 ? 0 : Math.abs(rectHeight - rectWidth);
+        // // 单侧X轴扩展
+        // private int expandY = rotation%2 == 0 ? Math.abs(rectHeight - rectWidth) : 0;
+        // // 单侧Y轴扩展
 
         /** 根据主方块的位置和旋转，创建所有子方块 */
         private void createChildren() {
@@ -182,14 +193,15 @@ public static void registerChildBlock() {
             int w = rotation % 2 == 0 ? rectWidth : rectHeight;
             int h = rotation % 2 == 0 ? rectHeight : rectWidth;
             int mainSize = Math.min(rectWidth, rectHeight); // 主方块边长 = 短边
-            //System.out.println("MainBlock Center: " + tileX() + ", " + tileY() + ", Size: " + mainSize);
+            // System.out.println("MainBlock Center: " + tileX() + ", " + tileY() + ", Size:
+            // " + mainSize);
 
             // 计算矩形左下角格坐标（主方块在矩形正中心）
             int centerX = tileX();
             int centerY = tileY();
             int startX = centerX - (w - 1) / 2;
             int startY = centerY - (h - 1) / 2;
-            //System.out.println("Rect Start: " + startX + ", " + startY);
+            // System.out.println("Rect Start: " + startX + ", " + startY);
 
             // 遍历整个矩形区域
             for (int dx = 0; dx < w; dx++) {
@@ -198,14 +210,15 @@ public static void registerChildBlock() {
                     int gy = startY + dy;
                     // 跳过主方块占据的区域
                     if (gx >= tileX() && gx < tileX() + (mainSize % 2) &&
-                        gy >= tileY() && gy < tileY() + (mainSize % 2)) {
+                            gy >= tileY() && gy < tileY() + (mainSize % 2)) {
                         continue;
                     }
                     Tile childTile = world.tile(gx, gy);
-                    if (childTile == null) continue;
+                    if (childTile == null)
+                        continue;
                     // 放置子方块
                     childTile.setBlock(rectChildBlock, team, rotation);
-                    //System.out.println("Placed child block at: " + gx + ", " + gy);
+                    // System.out.println("Placed child block at: " + gx + ", " + gy);
                     // 确保建筑类型正确，防止存档加载时的类型不匹配
                     if (childTile.build instanceof RectChildBlock.RectChildBuild) {
                         RectChildBlock.RectChildBuild childBuild = (RectChildBlock.RectChildBuild) childTile.build;
@@ -230,27 +243,39 @@ public static void registerChildBlock() {
                 }
             }
         }
+
         @Override
         public void onRemoved() {
-            
 
             for (Building child : children) {
-                if (child.isAdded()) child.tile.setBlock(Blocks.air);
+                if (child.isAdded())
+                    child.tile.setBlock(Blocks.air);
             }
             super.onRemoved();
         }
+
         @Override
         public boolean acceptItem(Building source, Item item) {
-            if (source == null || !isAllowedTransport(source)) return false;
+            if (source == null || !isAllowedTransport(source))
+                return false;
 
-            if (acceptList.contains(source)) return findAcceptableInputSlot(item) != -1;
+            if (acceptList.contains(source))
+                return findAcceptableInputSlot(item) != -1;
 
             int dx = 0, dy = 0;
             switch (rotation) {
-                case 1: dy = -1; break; // 下
-                case 2: dx = 1; break;  // 右
-                case 3: dy = 1; break;  // 上
-                case 0: dx = -1; break; // 左
+                case 1:
+                    dy = -1;
+                    break; // 下
+                case 2:
+                    dx = 1;
+                    break; // 右
+                case 3:
+                    dy = 1;
+                    break; // 上
+                case 0:
+                    dx = -1;
+                    break; // 左
             }
 
             // 根据旋转计算当前宽度和高度
@@ -258,10 +283,10 @@ public static void registerChildBlock() {
             int w = rotated ? rectHeight : rectWidth;
             int h = rotated ? rectWidth : rectHeight;
 
-            int minX = tileX() - w/2;
-            int maxX = tileX() + (w % 2 == 0 ? w/2 - 1 : w/2);
-            int minY = tileY() - h/2;
-            int maxY = tileY() + (h % 2 == 0 ? h/2 - 1 : h/2);
+            int minX = tileX() - w / 2;
+            int maxX = tileX() + (w % 2 == 0 ? w / 2 - 1 : w / 2);
+            int minY = tileY() - h / 2;
+            int maxY = tileY() + (h % 2 == 0 ? h / 2 - 1 : h / 2);
 
             // 后方一排的坐标
             int checkX = (dx <= 0) ? minX + dx : maxX + dx;
@@ -286,6 +311,7 @@ public static void registerChildBlock() {
             }
             return false;
         }
+
         // 可选：在绘制时添加整个矩形的边框效果
         @Override
         public void drawConfigure() {
@@ -295,9 +321,10 @@ public static void registerChildBlock() {
             float offY = h * tilesize / 2f;
             Draw.color(Pal.accent);
             Lines.stroke(1.0F);
-            Lines.rect( x - offX, y - offY, w * tilesize, h * tilesize);
+            Lines.rect(x - offX, y - offY, w * tilesize, h * tilesize);
             Draw.reset();
         }
+
         @Override
         public void drawSelect() {
             super.drawSelect();
@@ -307,7 +334,7 @@ public static void registerChildBlock() {
             int h = rotation % 2 == 0 ? rectHeight : rectWidth;
             float offX = w * tilesize / 2f;
             float offY = h * tilesize / 2f;
-            Lines.rect( x - offX, y - offY, w * tilesize, h * tilesize);
+            Lines.rect(x - offX, y - offY, w * tilesize, h * tilesize);
         }
     }
 
@@ -316,26 +343,28 @@ public static void registerChildBlock() {
     // -------------------------------------------------------------------------
     @Override
     public boolean canPlaceOn(Tile tile, Team team, int rotation) {
-        float w = rotation % 2 == 0 ? rectWidth/2 : rectHeight/2;
-        float h = rotation % 2 == 0 ? rectHeight/2 : rectWidth/2;
-         for(int x = (int)Math.ceil(tile.x-w);x <= Math.floor(tile.x+w);x++){
-            for(int y = (int)Math.ceil(tile.y-h);y <= Math.floor(tile.y+h);y++){
-                Tile other = world.tile(x,y);
-                if (other == null || other.block().solid /*|| !other.team().data().canPlace(other.x, other.y, team)*/ ) {
+        float w = rotation % 2 == 0 ? rectWidth / 2 : rectHeight / 2;
+        float h = rotation % 2 == 0 ? rectHeight / 2 : rectWidth / 2;
+        for (int x = (int) Math.ceil(tile.x - w); x <= Math.floor(tile.x + w); x++) {
+            for (int y = (int) Math.ceil(tile.y - h); y <= Math.floor(tile.y + h); y++) {
+                Tile other = world.tile(x, y);
+                if (other == null
+                        || other.block().solid /* || !other.team().data().canPlace(other.x, other.y, team) */ ) {
                     return false;
                 }
             }
         }
         return super.canPlaceOn(tile, team, rotation);
-        
+
     }
-    
+
     @Override
     public void drawPlace(int x, int y, int rotation, boolean valid) {
         int w = rotation % 2 == 0 ? rectWidth : rectHeight;
         int h = rotation % 2 == 0 ? rectHeight : rectWidth;
         float offX = w * tilesize / 2f;
         float offY = h * tilesize / 2f;
-        Drawf.dashRect(valid ? Pal.accent : Pal.remove, x * tilesize - offX, y * tilesize - offY, w * tilesize, h * tilesize);
+        Drawf.dashRect(valid ? Pal.accent : Pal.remove, x * tilesize - offX, y * tilesize - offY, w * tilesize,
+                h * tilesize);
     }
 }
