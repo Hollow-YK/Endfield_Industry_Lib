@@ -27,7 +27,7 @@ public class EFblocks {
         //new GearingUnit("gearing-unit", 4, 6).load();                       //装备原件机
         //new FillingUnit("filling-unit", 4, 6).load();                       //灌装机
         new PackagingUnit("packaging-unit", 4, 6).load();           //封装机
-        //new GrindingUnit("grinding-unit", 4, 6).load();                     //研磨机
+        new GrindingUnit("grinding-unit", 4, 6).load();                     //研磨机
         //new SeparatingUnit("separating-unit", 4, 6).load();                 //拆解机
         //new ReactorCrucible("reactor-crucible", 4, 6).load();               //反应池
         //new ForgeoftheSky("forge-of-the-sky").load();                 //天有洪炉
