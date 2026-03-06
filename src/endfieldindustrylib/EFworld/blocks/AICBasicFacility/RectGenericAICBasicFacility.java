@@ -176,8 +176,8 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         public Seq<Building> children = new Seq<>(); // 所有子方块
 
         @Override
-        public void created() {
-            super.created();
+        public void placed() {
+            super.placed();
             // 在放置完成后创建所有子方块
             createChildren();
         }
@@ -192,28 +192,16 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             // 根据旋转计算实际宽高
             int w = rotation % 2 == 0 ? rectWidth : rectHeight;
             int h = rotation % 2 == 0 ? rectHeight : rectWidth;
-            int mainSize = Math.min(rectWidth, rectHeight); // 主方块边长 = 短边
-            // System.out.println("MainBlock Center: " + tileX() + ", " + tileY() + ", Size:
-            // " + mainSize);
-
-            // 计算矩形左下角格坐标（主方块在矩形正中心）
-            int centerX = tileX();
-            int centerY = tileY();
-            int startX = centerX - (w - 1) / 2;
-            int startY = centerY - (h - 1) / 2;
-            // System.out.println("Rect Start: " + startX + ", " + startY);
-
-            // 遍历整个矩形区域
-            for (int dx = 0; dx < w; dx++) {
-                for (int dy = 0; dy < h; dy++) {
-                    int gx = startX + dx;
-                    int gy = startY + dy;
+            int minX = tileX() - (w % 2 == 0 ? w / 2 -1 : w / 2);
+            int maxX = tileX() + (w % 2 == 0 ? w / 2  : w / 2);
+            int minY = tileY() - (h % 2 == 0 ? h / 2 -1 : h / 2);
+            int maxY = tileY() + (h % 2 == 0 ? h / 2  : h / 2);            // 遍历整个矩形区域
+            for(int x= minX;x<=maxX;x++){
+                for(int y = minY; y<=maxY;y++){
                     // 跳过主方块占据的区域
-                    if (gx >= tileX() && gx < tileX() + (mainSize % 2) &&
-                            gy >= tileY() && gy < tileY() + (mainSize % 2)) {
-                        continue;
-                    }
-                    Tile childTile = world.tile(gx, gy);
+                    if (this==world.tile(x,y).build) continue;
+                    
+                    Tile childTile = world.tile(x,y);
                     if (childTile == null)
                         continue;
                     // 放置子方块
@@ -283,10 +271,10 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             int w = rotated ? rectHeight : rectWidth;
             int h = rotated ? rectWidth : rectHeight;
 
-            int minX = tileX() - w / 2;
-            int maxX = tileX() + (w % 2 == 0 ? w / 2 - 1 : w / 2);
-            int minY = tileY() - h / 2;
-            int maxY = tileY() + (h % 2 == 0 ? h / 2 - 1 : h / 2);
+            int minX = tileX() - (w % 2 == 0 ? w / 2 -1 : w / 2);
+            int maxX = tileX() + (w % 2 == 0 ? w / 2  : w / 2);
+            int minY = tileY() - (h % 2 == 0 ? h / 2 -1 : h / 2);
+            int maxY = tileY() + (h % 2 == 0 ? h / 2  : h / 2);
 
             // 后方一排的坐标
             int checkX = (dx <= 0) ? minX + dx : maxX + dx;
@@ -343,10 +331,15 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
     // -------------------------------------------------------------------------
     @Override
     public boolean canPlaceOn(Tile tile, Team team, int rotation) {
-        float w = rotation % 2 == 0 ? rectWidth / 2 : rectHeight / 2;
-        float h = rotation % 2 == 0 ? rectHeight / 2 : rectWidth / 2;
-        for (int x = (int) Math.ceil(tile.x - w); x <= Math.floor(tile.x + w); x++) {
-            for (int y = (int) Math.ceil(tile.y - h); y <= Math.floor(tile.y + h); y++) {
+        
+        int w = rotation % 2 == 0 ? rectWidth  : rectHeight ;
+        int h = rotation % 2 == 0 ? rectHeight  : rectWidth ;
+            int minX = tile.x - (w % 2 == 0 ? w / 2 -1 : w / 2);
+            int maxX = tile.x + (w % 2 == 0 ? w / 2  : w / 2);
+            int minY = tile.y - (h % 2 == 0 ? h / 2 -1 : h / 2);
+            int maxY = tile.y + (h % 2 == 0 ? h / 2  : h / 2);
+        for (int x =minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
                 Tile other = world.tile(x, y);
                 if (other == null
                         || other.block().solid /* || !other.team().data().canPlace(other.x, other.y, team) */ ) {
@@ -362,9 +355,11 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
     public void drawPlace(int x, int y, int rotation, boolean valid) {
         int w = rotation % 2 == 0 ? rectWidth : rectHeight;
         int h = rotation % 2 == 0 ? rectHeight : rectWidth;
+        float wx = size%2==0?x * tilesize+4:x*tilesize;
+        float wy = size%2==0?y * tilesize+4:x*tilesize;
         float offX = w * tilesize / 2f;
         float offY = h * tilesize / 2f;
-        Drawf.dashRect(valid ? Pal.accent : Pal.remove, x * tilesize - offX, y * tilesize - offY, w * tilesize,
+        Drawf.dashRect(valid ? Pal.accent : Pal.remove, wx - offX, wy - offY, w * tilesize,
                 h * tilesize);
     }
 }
