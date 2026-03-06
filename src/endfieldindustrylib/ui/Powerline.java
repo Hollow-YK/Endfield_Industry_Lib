@@ -97,7 +97,7 @@ public class Powerline {
 
     private List<int[]> lest = new ArrayList<>();
 
-    public int drawpowerline(Building build) {
+    public int drawpowerline(Building build, int plLength) {
 
         int mouseTileX = (int) Math.rint(Core.input.mouseWorldX() / Vars.tilesize);
         int mouseTileY = (int) Math.rint(Core.input.mouseWorldY() / Vars.tilesize);
