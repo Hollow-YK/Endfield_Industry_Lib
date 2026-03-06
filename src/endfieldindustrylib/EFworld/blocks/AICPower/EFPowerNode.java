@@ -24,6 +24,7 @@ import mindustry.core.Renderer;
 public class EFPowerNode extends PowerNode {
 
     public int squarelaserRange = 0;
+    public int plLength = 80;
 
     public EFPowerNode(String name) {
         super(name);
@@ -42,8 +43,8 @@ public class EFPowerNode extends PowerNode {
     }
     @Override
     public void drawPlace(int tx, int ty, int rotation, boolean valid) {
-        float centerX = (tx + size/2f) * tilesize; // 或 tx * tilesize + size * 4
-        float centerY = (ty + size/2f) * tilesize;
+        float centerX = size%2==0?tx * tilesize+4:tx * tilesize; // 或 tx * tilesize + size * 4
+        float centerY = size%2==0?ty * tilesize+4:ty * tilesize;
         float width = (squarelaserRange * 2 + 1) * tilesize;
         Draw.color(185f, 205f, 0f, 1f);
         Lines.rect(centerX - squarelaserRange * tilesize - 4, centerY - squarelaserRange * tilesize - 4, width, width);
@@ -53,6 +54,7 @@ public class EFPowerNode extends PowerNode {
         List<Building> drawlist = new ArrayList<>();
         for (int x = (int) Math.floor(tx - this.squarelaserRange); x <= Math.ceil(tx + this.squarelaserRange); x++) {
             for (int y = (int) Math.floor(ty - this.squarelaserRange); y <= Math.ceil(ty + this.squarelaserRange); y++) {
+                if (Vars.world.tile(x, y) == null) continue;
                 if (Vars.world.tile(x, y).build != null) {
                     Building canlink = Vars.world.tile(x, y).build;
                     if (!isSpecial(canlink) && !drawlist.contains(canlink)) {
@@ -79,7 +81,7 @@ public class EFPowerNode extends PowerNode {
             // 电力建筑：通过中心距离检查（手动连接)
             Powerline canpowerline = new Powerline();
             int a = canpowerline.canpowerline(tile, link);
-            if (a != -1 && a <= 60) {
+            if (a != -1 && a <= plLength) {
                 if (checkMaxNodes && link.block instanceof PowerNode node) {
                     return link.power.links.size < node.maxNodes || link.power.links.contains(tile.pos());
                 }
@@ -159,7 +161,7 @@ public class EFPowerNode extends PowerNode {
         public void drawConfigure() {
             // 计算距离并保存，供 update 使用
             
-            lastDistance = powerline.drawpowerline(this); // 此方法既绘制又返回距离，因此先绘制并获取返回值
+            lastDistance = powerline.drawpowerline(this, plLength); // 此方法既绘制又返回距离，因此先绘制并获取返回值
             powerline.fallowMouse();
             updateLabelText();
             // 绘制圆形高亮
@@ -234,48 +236,5 @@ public class EFPowerNode extends PowerNode {
             }
             return out;
         }
-
-        /*
-         * @Override
-         * 
-         * super.onProximityUpdate();
-         * updateConnections();
-         * }
-         * 
-         * private void updateConnections() {
-         * if (squarelaserRange <= 0) return;
-         * 
-         * float worldHalf = squarelaserRange * tilesize / 2f;
-         * Seq<Building> buildingsInRect = EFBuildings.getBuildingsInRect(
-         * (int)(x - worldHalf), (int)(y - worldHalf),
-         * (int)(x + worldHalf), (int)(y + worldHalf)
-         * );
-         * 
-         * // 收集当前仍然有效的连接（使用普通 for 循环遍历 power.links）
-         * 
-         * // 收集正方形区域内有效的新目标（去重），排除特殊建筑
-         * Seq<Point2> newTargets = new Seq<>();
-         * for (Building other : buildingsInRect) {
-         * if (other == this) continue;
-         * // 排除电力建筑
-         * if (EFPowerNode.this.isSpecial(other)) continue;
-         * if (EFPowerNode.this.linkValid(this, other, false)) {
-         * int dx = other.tileX() - tileX();
-         * int dy = other.tileY() - tileY();
-         * Point2 p = new Point2(dx, dy);
-         * if (!currentLinks.contains(p)) {
-         * newTargets.add(p);
-         * }
-         * }
-         * }
-         * 
-         * // 合并现有有效连接与新目标
-         * Seq<Point2> allTargets = new Seq<>();
-         * allTargets.addAll(currentLinks);
-         * allTargets.addAll(newTargets);
-         * 
-         * configure(allTargets.toArray(Point2.class));
-         * }
-         */
     }
 }
