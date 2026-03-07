@@ -22,7 +22,7 @@ public class EFblocks {
         new RefiningUnit("refining-unit").load();                 //精炼炉
         new ShreddingUnit("shredding-unit").load();               //粉碎机
         new FittingUnit("fitting-unit").load();                   //配件机
-        new MouldingUnit("moulding-unit").load();                 //塑形机
+        //new MouldingUnit("moulding-unit").load();                 //塑形机
         // 合成制造
         //new GearingUnit("gearing-unit").load();                       //装备原件机
         //new FillingUnit("filling-unit").load();                       //灌装机
