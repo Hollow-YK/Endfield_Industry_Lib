@@ -71,6 +71,19 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         public static class RectChildBuild extends Building {
             public Building master; // 指向主方块
 
+            @Override
+            public void update() {
+                super.update();
+                // 主方块不存在或已被移除，销毁自己
+                if (master == null) {
+                    tile.setBlock(Blocks.air);
+                }else if (!master.isAdded()) {
+                    tile.setBlock(Blocks.air);
+                }else if (Vars.world.tile(master.pos()) != master.tile) {
+                    tile.setBlock(Blocks.air);
+                }
+            }
+
             public void setMaster(Building master) {
                 this.master = master;
             }
@@ -143,6 +156,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             // ---------- 保存/加载 ----------
             @Override
             public void write(Writes write) {
+                System.out.println("Writing child block. Master pos: " + (master == null ? -1 : master.pos()));
                 super.write(write);
                 write.i(master == null ? -1 : master.pos());
             }
@@ -151,6 +165,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             public void read(Reads read, byte revision) {
                 super.read(read, revision);
                 int pos = read.i();
+                System.out.println("Reading child block. Master pos: " + pos);
                 if (pos != -1) {
                     master = world.build(pos);
                 }
@@ -174,6 +189,29 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
     // -------------------------------------------------------------------------
     public class RectBuild extends GenericAICBasicFacilityBuild {
         public Seq<Building> children = new Seq<>(); // 所有子方块
+        private float childCheckTimer = 0f;
+        private static final float CHECK_INTERVAL = 60f; // 每60 tick检查一次，约1秒
+        private int[] lastOutputIndex;
+
+        public RectBuild() {
+            inputSlots = new Slot[inputSlotDefs.length];
+            for (int i = 0; i < inputSlotDefs.length; i++)
+                inputSlots[i] = new Slot(inputSlotDefs[i].item);
+            outputSlots = new Slot[outputSlotDefs.length];
+            for (int i = 0; i < outputSlotDefs.length; i++)
+                outputSlots[i] = new Slot(outputSlotDefs[i].item);
+            lastOutputIndex = new int[outputSlotDefs.length];
+        }
+       
+        @Override
+        public void update() {
+            super.update(); // 保持父类逻辑
+            childCheckTimer += delta();
+            if (childCheckTimer >= CHECK_INTERVAL) {
+                childCheckTimer = 0f;
+                ensureChildren();
+            }
+        }
 
         @Override
         public void placed() {
@@ -188,7 +226,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         // // 单侧Y轴扩展
 
         /** 根据主方块的位置和旋转，创建所有子方块 */
-        private void createChildren() {
+        public void createChildren() {
             // 根据旋转计算实际宽高
             int w = rotation % 2 == 0 ? rectWidth : rectHeight;
             int h = rotation % 2 == 0 ? rectHeight : rectWidth;
@@ -206,7 +244,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
                         continue;
                     // 放置子方块
                     childTile.setBlock(rectChildBlock, team, rotation);
-                    // System.out.println("Placed child block at: " + gx + ", " + gy);
+                    System.out.println("Placed child block at: " + x + ", " + y);
                     // 确保建筑类型正确，防止存档加载时的类型不匹配
                     if (childTile.build instanceof RectChildBlock.RectChildBuild) {
                         RectChildBlock.RectChildBuild childBuild = (RectChildBlock.RectChildBuild) childTile.build;
@@ -275,6 +313,7 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             int maxX = tileX() + (w % 2 == 0 ? w / 2  : w / 2);
             int minY = tileY() - (h % 2 == 0 ? h / 2 -1 : h / 2);
             int maxY = tileY() + (h % 2 == 0 ? h / 2  : h / 2);
+            System.out.println("minX: " + minX + ", maxX: " + maxX + ", minY: " + minY + ", maxY: " + maxY);
 
             // 后方一排的坐标
             int checkX = (dx <= 0) ? minX + dx : maxX + dx;
@@ -300,6 +339,137 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             return false;
         }
 
+        @Override
+        public void dumpOutputs() {
+            if (!timer(timerDump, dumpTime / timeScale))
+                return;
+
+            // 确保输出方向掩码非零（若父类未设置，此处强制允许所有方向）
+            if (outputFacingMask == 0) {
+                outputFacingMask = 0b1111; // 允许左、下、右、上
+            }
+
+            // 根据旋转计算实际尺寸和边界（与 createChildren 保持一致）
+            boolean rotated = rotation % 2 != 0;
+            int w = rotated ? rectHeight : rectWidth;
+            int h = rotated ? rectWidth : rectHeight;
+
+            int minX = tileX() - (w % 2 == 0 ? w / 2 - 1 : w / 2);
+            int maxX = tileX() + (w % 2 == 0 ? w / 2 : w / 2);
+            int minY = tileY() - (h % 2 == 0 ? h / 2 - 1 : h / 2);
+            int maxY = tileY() + (h % 2 == 0 ? h / 2 : h / 2);
+            System.out.println("dumpOutputs: minX=" + minX + ", maxX=" + maxX + ", minY=" + minY + ", maxY=" + maxY);
+
+            // 输出方向向量
+            int dx = 0, dy = 0;
+            switch (rotation) {
+                case 0: dx = 1; break; // 右
+                case 1: dy = 1; break; // 上
+                case 2: dx = -1; break; // 左
+                case 3: dy = -1; break; // 下
+            }
+
+            // 正确的输出排坐标（紧贴建筑外部）
+            int checkX = dx >= 0 ? maxX + dx : minX + dx;
+            int checkY = dy <= 0 ? minY + dy : maxY + dy;
+            System.out.println("dumpOutputs: checkX=" + checkX + ", checkY=" + checkY);
+
+            // 收集输出排上的所有同队建筑
+            Seq<Building> outputCandidates = new Seq<>();
+            if (rotation % 2 == 0) { // 纵向输出排（列）
+                for (int y = minY; y <= maxY; y++) {
+                    Tile t = world.tile(checkX, y);
+                    if (t != null && t.build != null && t.build.team == team) {
+                        outputCandidates.add(t.build);
+                    }
+                }
+            } else { // 横向输出排（行）
+                for (int x = minX; x <= maxX; x++) {
+                    Tile t = world.tile(x, checkY);
+                    if (t != null && t.build != null && t.build.team == team) {
+                        outputCandidates.add(t.build);
+                    }
+                }
+            }
+
+            // 调试：打印输出排信息
+            System.out.println("dumpOutputs: rotation=" + rotation + ", checkX=" + checkX + ", checkY=" + checkY);
+            System.out.println("outputCandidates size=" + outputCandidates.size); // 修正：size 是字段
+
+            if (outputCandidates.isEmpty()) return;
+
+            // 确保轮询索引数组长度正确
+            if (lastOutputIndex.length != outputSlots.length) {
+                lastOutputIndex = new int[outputSlots.length];
+            }
+
+            for (int slotIdx = 0; slotIdx < outputSlots.length; slotIdx++) {
+                Slot slot = outputSlots[slotIdx];
+                if (slot.amount <= 0 || slot.currentItem == null) continue;
+                Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
+
+                int n = outputCandidates.size; // 修正：使用字段 size
+                int startIdx = lastOutputIndex[slotIdx] % n;
+
+                while (slot.amount > 0) {
+                    boolean found = false;
+                    for (int i = 0; i < n; i++) {
+                        int idx = (startIdx + i) % n;
+                        Building other = outputCandidates.get(idx);
+                        if (!isAllowedTransport(other)) continue;
+                        System.out.println("other: (x=" + other.tileX() + ", y=" + other.tileY() + "),acceptItem=" + other.acceptItem(this, item));
+
+                        if (other.acceptItem(this, item)) {
+                            other.handleItem(this, item);
+                            slot.remove(1);
+                            lastOutputIndex[slotIdx] = (idx + 1) % n;
+                            startIdx = lastOutputIndex[slotIdx];
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) break;
+                }
+            }
+        }
+
+        private void ensureChildren() {
+            // 根据旋转计算实际占用的宽高
+            boolean rotated = rotation % 2 != 0;
+            int w = rotated ? rectHeight : rectWidth;
+            int h = rotated ? rectWidth : rectHeight;
+
+            // 计算矩形边界（与 createChildren 中一致）
+            int minX = tileX() - (w % 2 == 0 ? w / 2 - 1 : w / 2);
+            int maxX = tileX() + (w % 2 == 0 ? w / 2 : w / 2);
+            int minY = tileY() - (h % 2 == 0 ? h / 2 - 1 : h / 2);
+            int maxY = tileY() + (h % 2 == 0 ? h / 2 : h / 2);
+
+            Seq<Building> newChildren = new Seq<>();
+
+            for (int x = minX; x <= maxX; x++) {
+                for (int y = minY; y <= maxY; y++) {
+                    // 跳过主方块自身
+                    if (x == tileX() && y == tileY()) continue;
+
+                    Tile t = world.tile(x, y);
+                    if (t == null) continue;
+
+                    Building b = t.build;
+                    // 如果当前建筑已经是正确的子方块，直接保留
+                    if (b instanceof RectChildBlock.RectChildBuild && ((RectChildBlock.RectChildBuild) b).master == this) {
+                        newChildren.add(b);
+                    } else {
+                        createChildren(); // 重新创建子方块
+                        break; // 放置后跳出内层循环，避免重复放置
+                    }
+                }
+            }
+
+            // 更新 children 列表为新的有效列表
+            children = newChildren;
+        }
+
         // 可选：在绘制时添加整个矩形的边框效果
         @Override
         public void drawConfigure() {
@@ -323,6 +493,11 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             float offX = w * tilesize / 2f;
             float offY = h * tilesize / 2f;
             Lines.rect(x - offX, y - offY, w * tilesize, h * tilesize);
+        }
+        @Override
+        public void read(Reads read, byte revision) {
+            super.read(read, revision);
+            createChildren(); // 修复子块引用
         }
     }
 
