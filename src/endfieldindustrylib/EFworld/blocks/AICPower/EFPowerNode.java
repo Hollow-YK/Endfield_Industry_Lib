@@ -104,6 +104,7 @@ public class EFPowerNode extends PowerNode {
     protected boolean squareOverlaps(Building src, Building other, int range) {
         for (int x = (int) Math.floor(src.tileX() - range); x <= Math.ceil(src.tileX() + range); x++) {
             for (int y = (int) Math.floor(src.tileY() - range); y <= Math.ceil(src.tileY() + range); y++) {
+                if (Vars.world.tile(x, y) == null) continue;
                 if (Vars.world.tile(x, y).build == other) {
                     return true;
                 }
@@ -121,6 +122,7 @@ public class EFPowerNode extends PowerNode {
                     .ceil(this.tileX() + squarelaserRange); x++) {
                 for (int y = (int) Math.floor(this.tileY() - squarelaserRange); y <= Math
                         .ceil(this.tileY() + squarelaserRange); y++) {
+                    if (Vars.world.tile(x, y) == null) continue;
                     if (Vars.world.tile(x, y).build != null) {
                         Point2 xy = new Point2(Vars.world.tile(x, y).build.tileX() - this.tileX(), Vars.world.tile(x, y).build.tileY() - this.tileY());
                         if (!isSpecial(Vars.world.tile(x, y).build) && Vars.world.tile(x, y).build.block.hasPower
@@ -182,6 +184,7 @@ public class EFPowerNode extends PowerNode {
             List<Building> drawlist = new ArrayList<>();
             for (int x = (int) Math.floor(this.tileX() - squarelaserRange); x <= Math.ceil(this.tileX() + squarelaserRange); x++) {
                 for (int y = (int) Math.floor(this.tileY() - squarelaserRange); y <= Math.ceil(this.tileY() + squarelaserRange); y++) {
+                    if (Vars.world.tile(x, y) == null) continue;
                     if (Vars.world.tile(x, y).build != null) {
                         Building canlink = Vars.world.tile(x, y).build;
                         if (!isSpecial(canlink) && !drawlist.contains(canlink)) {
