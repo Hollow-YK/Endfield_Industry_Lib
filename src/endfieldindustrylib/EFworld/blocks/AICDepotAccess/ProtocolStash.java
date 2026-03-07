@@ -146,56 +146,65 @@ public class ProtocolStash extends Block {
 
         /** 向输出面（前方）输出物品 */
         public void dumpOutputs() {
-            int outputDir = rotation; // 前方为建筑朝向
-            Building front = nearby(outputDir);
-            if (front == null || !isAllowedTransport(front))
+            // 收集前方一排的建筑（最多3个）
+            Building[] frontBuildings = new Building[3];
+            int frontCount = 0;
+
+            if (rotation % 2 == 0) { // 水平方向：左(0)或右(2)
+                int baseX = tileX() + 2 * (1 - rotation);
+                for (int i = -1; i <= 1; i++) {
+                    int y = tileY() + i;
+                    Building b = Vars.world.tile(baseX, y) == null ? null : Vars.world.tile(baseX, y).build;
+                    if (b != null && b.team == team && isAllowedTransport(b)) {
+                        frontBuildings[frontCount++] = b;
+                    }
+                }
+            } else { // 垂直方向：下(1)或上(3)
+                int baseY = tileY() + 2 * (2 - rotation);
+                for (int i = -1; i <= 1; i++) {
+                    int x = tileX() + i;
+                    Building b = Vars.world.tile(x, baseY) == null ? null : Vars.world.tile(x, baseY).build;
+                    if (b != null && b.team == team && isAllowedTransport(b)) {
+                        frontBuildings[frontCount++] = b;
+                    }
+                }
+            }
+
+            if (frontCount == 0)
                 return;
 
-            // 获取相邻建筑列表（仅用于轮询，但只有一个方向，简化）
-            // 仍使用轮询机制以保持通用性
-            Building[] neighbors = proximity.toArray(Building.class);
-            int n = neighbors.length;
-            if (n == 0)
-                return;
-
-            // 遍历所有槽位，每个槽位尝试输出
+            // 找到第一个非空槽位
+            Slot targetSlot = null;
+            Item targetItem = null;
             for (int slotIdx = 0; slotIdx < slots.length; slotIdx++) {
                 Slot slot = slots[slotIdx];
-                if (slot.amount <= 0 || slot.currentItem == null)
-                    continue;
-                Item item = slot.currentItem;
-
-                // 从上次位置开始轮询（但实际只有一个输出方向，这里仍保留轮询逻辑以应对多方向可能性）
-                int startIdx = lastOutputIndex % n;
-
-                while (slot.amount > 0) {
-                    boolean found = false;
-                    for (int i = 0; i < n; i++) {
-                        int idx = (startIdx + i) % n;
-                        Building other = neighbors[idx];
-                        if (other == null || other.team != team)
-                            continue;
-
-                        // 检查是否位于输出方向
-                        int worldDir = relativeTo(other);
-                        if (worldDir != outputDir)
-                            continue;
-
-                        if (!isAllowedTransport(other))
-                            continue;
-
-                        if (other.acceptItem(this, item)) {
-                            other.handleItem(this, item);
-                            slot.remove(1);
-                            lastOutputIndex = (idx + 1) % n;
-                            startIdx = lastOutputIndex;
-                            found = true;
-                            break; // 输出成功一个，继续尝试下一个
-                        }
-                    }
-                    if (!found)
-                        break;
+                if (slot.amount > 0 && slot.currentItem != null) {
+                    targetSlot = slot;
+                    targetItem = slot.currentItem;
+                    break;
                 }
+            }
+            if (targetSlot == null)
+                return; // 无物品可输出
+
+            // 对该槽位的物品进行轮询输出（lastOutputIndex 作为轮询指针）
+            int startIdx = lastOutputIndex % frontCount;
+            while (targetSlot.amount > 0) {
+                boolean found = false;
+                for (int i = 0; i < frontCount; i++) {
+                    int idx = (startIdx + i) % frontCount;
+                    Building other = frontBuildings[idx];
+                    if (other.acceptItem(this, targetItem)) {
+                        other.handleItem(this, targetItem);
+                        targetSlot.remove(1);
+                        lastOutputIndex = (idx + 1) % frontCount;
+                        startIdx = lastOutputIndex;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    break;
             }
         }
 

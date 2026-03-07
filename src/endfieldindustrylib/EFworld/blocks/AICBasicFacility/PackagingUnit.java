@@ -8,7 +8,7 @@ public class PackagingUnit extends RectGenericAICBasicFacility {
     public PackagingUnit(String name, int width, int height) {
         super(name, width, height);
 
-        size = 3;
+        size = 4;
         powerUsage = 0.333335f;
         requirements(Category.crafting, ItemStack.with(EFitems.amethystPart, 20));
 

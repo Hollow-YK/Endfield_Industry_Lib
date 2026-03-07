@@ -7,7 +7,7 @@ subtitle: "终末地工业Lib"
 name: "endfield-industry-lib"
 
 #your name
-author: "Hollow"
+author: "[blue]Hollow[white] and [purple]W[white].gaster"
 
 #the fully qualified main class of the mod
 main: "endfieldindustrylib.Lib"
@@ -22,7 +22,7 @@ description: "欢迎来到终末地工业。
 "
 
 #the mod version
-version: 0.0.8-Beta
+version: 0.0.9-Beta
 
 #the minimum game build required to run this mod
 minGameVersion: 154

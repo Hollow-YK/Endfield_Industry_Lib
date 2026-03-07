@@ -97,11 +97,14 @@ public class Powerline {
 
     private List<int[]> lest = new ArrayList<>();
 
-    public int drawpowerline(Building build) {
+    public int drawpowerline(Building build, int plLength) {
 
         int mouseTileX = (int) Math.rint(Core.input.mouseWorldX() / Vars.tilesize);
         int mouseTileY = (int) Math.rint(Core.input.mouseWorldY() / Vars.tilesize);
-        Building select = Vars.world.tile(mouseTileX, mouseTileY).build;
+        Building select = null;
+        if (Vars.world.tile(mouseTileX, mouseTileY) != null) {
+            select = Vars.world.tile(mouseTileX, mouseTileY).build;
+        }
         if(select==null){
             lest = findPath((int) build.tileX(), (int) build.tileY(), mouseTileX, mouseTileY);
         }else{

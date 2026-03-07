@@ -14,6 +14,7 @@ import mindustry.world.blocks.distribution.Conveyor;
 import mindustry.world.meta.BlockGroup;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import endfieldindustrylib.EFworld.blocks.AICBasicFacility.RectGenericAICBasicFacility;
 
 public class TransportBelt extends Conveyor {
     public TransportBelt(String name) {
@@ -87,18 +88,49 @@ public class TransportBelt extends Conveyor {
                 return false;
             }
 
-            // 获取接触边
-            Tile facing = Edges.getFacingEdge(source.tile, tile);
-            if (facing == null) {
-                return false;
-            }
+            if (source instanceof RectGenericAICBasicFacility.RectBuild) {
+                if(source.rotation != ((inputDir + 2) % 4)) {
+                    return false;
+                }
+                int checkX = this.tileX();
+                int checkY = this.tileY();
+                switch(this.inputDir) {
+                    case 0:
+                        checkX = checkX + 1;
+                        break;
+                    case 1:
+                        checkY = checkY + 1;
+                        break;
+                    case 2:
+                        checkX = checkX - 1;
+                        break;
+                    case 3:
+                        checkY = checkY - 1;
+                        break;
+                }
+                if (Vars.world.tile(checkX, checkY) == null || Vars.world.tile(checkX, checkY).build == null) {
+                    return false;
+                }else {
+                    if (Vars.world.tile(checkX, checkY).build.block instanceof RectGenericAICBasicFacility.RectChildBlock) {
+                        if (source != ((RectGenericAICBasicFacility.RectChildBlock.RectChildBuild) Vars.world.tile(checkX, checkY).build).master) {
+                            return false;
+                        }
+                    }
+                }
+            }else {
+                // 获取接触边
+                Tile facing = Edges.getFacingEdge(source.tile, tile);
+                if (facing == null) {
+                    return false;
+                }
 
-            // 计算来源绝
-            int sourceDir = (facing.relativeTo(tile.x, tile.y) + 2 ) % 4 ;// facing.relativeTo 左0下1右2上3，加2转换为右0上1左2下3
-            boolean dirOk = (sourceDir == inputDir);
+                // 计算来源绝
+                int sourceDir = (facing.relativeTo(tile.x, tile.y) + 2 ) % 4 ;// facing.relativeTo 左0下1右2上3，加2转换为右0上1左2下3
+                boolean dirOk = (sourceDir == inputDir);
 
-            if (!dirOk) {
-                return false;
+                if (!dirOk) {
+                    return false;
+                }
             }
 
             // 容量检查：只能有一个物品
