@@ -86,6 +86,12 @@
 Q：为什么现在不建议玩？
 A：没写完
 
+Q：我想要体验一下，应该怎么做？
+A：前往 [Release](https://github.com/Hollow-YK/Endfield_Industry_Lib/releases) 下载，并在游戏内通过“导入本地文件”的方式安装本模组。
+
+Q：安装时出现错误？
+A：如果你使用的是 Android 版，那么这是正常的。目前还没有适配安卓。
+
 </details>
 
 ## 开发相关
