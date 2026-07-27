@@ -1,11 +1,6 @@
 package endfieldindustrylib;
 
-import endfieldindustrylib.EFcontents.EFTechTree;
-import endfieldindustrylib.EFcontents.EFblocks;
-import endfieldindustrylib.EFcontents.EFitems;
-import endfieldindustrylib.EFcontents.EFplanets;
-import endfieldindustrylib.EFcontents.EFsectorPresets;
-import endfieldindustrylib.EFcontents.EFunits;
+import endfieldindustrylib.EFcontents.*;
 import endfieldindustrylib.EFworld.CampaignHandler;
 
 public class Lib extends mindustry.mod.Mod {
@@ -23,6 +18,9 @@ public class Lib extends mindustry.mod.Mod {
 
         // unit (塔塔)
         EFunits.load();
+
+        // status effects
+        EFstatusEffects.load();
 
         // block
         EFblocks.load();
