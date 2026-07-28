@@ -28,9 +28,6 @@ public class OmnidirectionalSonicTower extends PowerTurret {
         targetAir = true;
         targetGround = true;
 
-        // 使用自定义 Building 类（用于首次装填初始化）
-        buildType = OmnidirectionalSonicTowerBuild::new;
-
         // 虚拟子弹：不飞行、不可见、仅在生成点立即触发溅射状态
         shootType = new BasicBulletType(0f, 0f) {{
             lifetime = 1f;                // 1 tick 后消失
@@ -65,15 +62,4 @@ public class OmnidirectionalSonicTower extends PowerTurret {
         shootY = 0f;
     }
 
-    public class OmnidirectionalSonicTowerBuild extends PowerTurretBuild {
-        @Override
-        public void updateTile() {
-            super.updateTile();
-
-            // 无目标时保持装填满，敌方进入范围后立即射击
-            if(target == null) {
-                reloadCounter = reload;
-            }
-        }
-    }
 }
