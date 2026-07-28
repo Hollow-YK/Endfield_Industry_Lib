@@ -2,11 +2,16 @@ package endfieldindustrylib.EFworld.blocks.AICTurret;
 
 //射线塔
 import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
+import arc.math.Mathf;
+import arc.math.geom.Position;
 import endfieldindustrylib.EFcontents.EFitems;
 import mindustry.content.Fx;
 import mindustry.entities.bullet.SapBulletType;
 import mindustry.entities.pattern.ShootPattern;
+import mindustry.gen.Bullet;
 import mindustry.gen.Sounds;
+import mindustry.graphics.Drawf;
 import mindustry.type.Category;
 import mindustry.type.ItemStack;
 import mindustry.world.blocks.defense.turrets.PowerTurret;
@@ -37,23 +42,35 @@ public class BeamTower extends PowerTurret {
         // 自瞄 Building 类：开火前强制对准目标
         buildType = BeamTowerBuild::new;
 
-        // SapBulletType：从炮塔到目标绘制一条激光束，仅命中第一个目标
-        shootType = new SapBulletType() {{
-            damage = 22338;
-            length = 100f;           // 与 range 一致（12.5格）
-            lengthRand = 0f;
-            sapStrength = 0f;        // 不吸血
-            color = Color.valueOf("ff4444");
-            width = 0.8f;
-            lifetime = 10f;          // 光束短暂停留以可见
-            status = null;
-            hitEffect = Fx.hitLancer;
-            shootEffect = Fx.lightningShoot;
-            smokeEffect = Fx.none;
-            despawnEffect = Fx.none;
-            lightColor = Color.valueOf("ff4444");
-            lightOpacity = 0.5f;
-        }};
+        // 射线子弹：绘制与 Parallax 完全一致的激光束（Drawf.laser + mixcol 脉冲）
+        shootType = new SapBulletType() {
+            {
+                damage = 22338;
+                length = 100f;
+                lengthRand = 0f;
+                sapStrength = 0f;
+                color = Color.white;
+                width = 0.6f;
+                lifetime = 30f;
+                status = null;
+                hitEffect = Fx.hitLancer;
+                shootEffect = Fx.lightningShoot;
+                smokeEffect = Fx.none;
+                despawnEffect = Fx.none;
+                lightColor = Color.white;
+                lightOpacity = 0.5f;
+            }
+
+            @Override
+            public void draw(Bullet b){
+                if(b.data instanceof Position pos){
+                    Draw.mixcol(color, Mathf.absin(4f, 0.6f));
+                    Drawf.laser(laserRegion, laserEndRegion, laserEndRegion,
+                        b.x, b.y, pos.getX(), pos.getY(), width * b.fout());
+                    Draw.mixcol();
+                }
+            }
+        };
 
         shootX = 0f;
         shootY = 0f;
