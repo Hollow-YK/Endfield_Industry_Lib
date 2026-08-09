@@ -34,7 +34,7 @@ public class Ram extends UnitType{
         hovering = false;               // 不悬浮，受地面影响
         canDrown = true;                // 可在深水中淹死
         canBoost = false;               // 不能起飞
-        omniMovement = false;            // 需转向移动，产生转头效果
+        omniMovement = true;             // 可原地转向：无需前进即可转头对准目标
         isEnemy = true;
         drawBody = true;
         drawCell = true;
@@ -67,7 +67,7 @@ public class Ram extends UnitType{
             autoTarget = true;         // 自动索敌
             reload = 60f;              // 挥击频率（帧）
             shootCone = 60f;           // 前方锥形触发范围
-            recoil = -1.5f;
+            recoil = -1f;
             shake = 0f;
             bullet = new BulletType(0f, 0f){{
                 speed = 0f;
@@ -136,15 +136,15 @@ public class Ram extends UnitType{
         Draw.blend(Blending.additive);
         // 外层柔光
         Draw.color(tc.r, tc.g, tc.b, alpha * 0.12f);
-        Lines.stroke(2.8f);
+        Lines.stroke(2.2f+Mathf.sin(t,30f,0.6f));
         drawBand(bx, by, R, t, ph, unit.rotation);
         // 中层
-        Draw.color(tc.r, tc.g, tc.b, alpha * 0.30f);
+        Draw.color(tc.r, tc.g, tc.b, alpha * 0.60f);
         Lines.stroke(1.5f);
         drawBand(bx, by, R, t, ph, unit.rotation);
         // 内层亮芯
         Draw.color(tc.r, tc.g, tc.b, alpha * 0.95f);
-        Lines.stroke(0.7f);
+        Lines.stroke(0.5f);
         drawBand(bx, by, R, t, ph, unit.rotation);
         Draw.blend();
         Draw.reset();
