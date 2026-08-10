@@ -3,6 +3,7 @@ package endfieldindustrylib.EFworld.blocks.AICTurret;
 //液氮塔
 import arc.graphics.Color;
 import endfieldindustrylib.EFcontents.EFitems;
+import endfieldindustrylib.EFcontents.EFstatusEffects;
 import mindustry.entities.bullet.BasicBulletType;
 import mindustry.gen.Sounds;
 import mindustry.type.Category;
@@ -32,8 +33,9 @@ public class LNTower extends ItemTurret {
         ammo(
             EFitems.origocrust, new BasicBulletType(8f, 0) {{ // 速度改为 1格/帧（8f）
                 splashDamage = 0f;
-                splashDamageRadius = 16f; // radius 2 tiles
-                // TODO: add slow status effect (-75% speed, 3s duration)
+                splashDamageRadius = 40f; // radius 5 tiles，范围内敌方均承受液氮效果
+                status = EFstatusEffects.lnTowerEffect; // 液氮：移动速度下降75%
+                statusDuration = 180f; // 3秒（60ticks/秒）
                 width = 9f;
                 height = 14f;
                 lifetime = 15f; // 120/8 = 15，与 range 匹配
@@ -44,8 +46,9 @@ public class LNTower extends ItemTurret {
             }},
             EFitems.amethystFiber, new BasicBulletType(8f, 0) {{ // 速度改为 1格/帧（8f）
                 splashDamage = 0f;
-                splashDamageRadius = 16f; // radius 2 tiles
-                // TODO: add slow status effect (-75% speed, 3s duration)
+                splashDamageRadius = 40f; // radius 5 tiles，范围内敌方均承受液氮效果
+                status = EFstatusEffects.lnTowerEffect; // 液氮：移动速度下降75%
+                statusDuration = 180f; // 3秒（60ticks/秒）
                 width = 9f;
                 height = 14f;
                 lifetime = 40f;
