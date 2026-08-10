@@ -15,8 +15,6 @@ public class SeedPickingUnit extends GenericAICBasicFacility {
         requirements(Category.crafting, ItemStack.with(EFitems.amethystPart, 20));
 
         rotate = true;
-        inputFacingMask = 1 << 2; // 背面输入
-        outputFacingMask = 1 << 0; // 正面输出
         inputOffsets = new Point2[]{ new Point2(-3, -2), new Point2(-3, -1), new Point2(-3, 0), new Point2(-3, 1), new Point2(-3, 2) };  // 背面输入
         outputOffsets = new Point2[]{ new Point2(3, -2), new Point2(3, -1), new Point2(3, 0), new Point2(3, 1), new Point2(3, 2) };    // 正面输出
 

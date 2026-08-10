@@ -48,8 +48,6 @@ import mindustry.world.meta.StatUnit;
  * - 电力消耗：默认5/s，无论是否工作，供电不足时停止生产并清空进度
  */
 public class GenericAICBasicFacility extends GenericCrafter {
-    public int inputFacingMask = 0b1111;
-    public int outputFacingMask = 0b1111;
     public SlotDef[] inputSlotDefs = {};
     public SlotDef[] outputSlotDefs = {};
     public Recipe[] recipes = {};

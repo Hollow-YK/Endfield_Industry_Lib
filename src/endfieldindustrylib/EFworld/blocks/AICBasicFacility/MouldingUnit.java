@@ -15,8 +15,6 @@ public class MouldingUnit extends GenericAICBasicFacility {
         requirements(Category.crafting, ItemStack.with(EFitems.originiumOre, 10));
 
         rotate = true;
-        inputFacingMask = 1 << 2;
-        outputFacingMask = 1 << 0;
         inputOffsets = new Point2[]{ new Point2(-2, -1), new Point2(-2, 0), new Point2(-2, 1) };  // 背面输入
         outputOffsets = new Point2[]{ new Point2(2, -1), new Point2(2, 0), new Point2(2, 1) };    // 正面输出
 
