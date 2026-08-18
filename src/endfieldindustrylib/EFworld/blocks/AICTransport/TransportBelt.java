@@ -81,8 +81,9 @@ public class TransportBelt extends Conveyor {
     // 辅助结果类型
     // ============================================================
     private static class StartResult {
-        final Tile tile;
-        StartResult(Tile t) { tile = t; }
+        final Tile tile;      // 起点格（传送带第一格）
+        final Tile source;    // 起点建筑（用户选择的输出建筑，用于首节输入方向）
+        StartResult(Tile t, Tile s) { tile = t; source = s; }
     }
     private static class EndResult {
         final Tile tile;
@@ -376,19 +377,22 @@ public class TransportBelt extends Conveyor {
     private StartResult findEffectiveStart(Tile clicked) {
         if (clicked == null) return null;
         if (clicked.build != null) {
+            // 点击了建筑：起点格 = 该建筑可输出侧的空地，源建筑 = 该建筑本身
+            // （直接使用被点击建筑作为来源，不重新扫描——避免旁边还有其他可输出建筑时误选右侧那个）
             for (Point2 p : Geometry.d4) {
                 Tile neighbor = world.tile(clicked.x + p.x, clicked.y + p.y);
                 if (neighbor == null || neighbor.build != null) continue;
                      if (canOutputTo(clicked.build, neighbor)) {
-                        return new StartResult(neighbor);
+                        return new StartResult(neighbor, clicked);
                 }
             }
         } else {
+            // 点击了空地：源建筑 = 可输出到本格的邻接建筑，起点格 = 本格
             for (Point2 p : Geometry.d4) {
                 Tile neighbor = world.tile(clicked.x + p.x, clicked.y + p.y);
                 if (neighbor == null || neighbor.build == null) continue;
                 if (canOutputTo(neighbor.build, clicked)) {
-                    return new StartResult(clicked);
+                    return new StartResult(clicked, neighbor);
                 }
             }
         }
@@ -418,6 +422,18 @@ public class TransportBelt extends Conveyor {
         for (Point2 p : Geometry.d4) {
             Tile neighbor = world.tile(beltTile.x + p.x, beltTile.y + p.y);
             if (neighbor != null && neighbor.build != null && canOutputTo(neighbor.build, beltTile)) {
+                return neighbor;
+            }
+        }
+        return null;
+    }
+
+    // 查找可以从指定 beltTile 接收物品的目标建筑（终点）
+    private Tile findEndBuilding(Tile beltTile) {
+        if (beltTile == null) return null;
+        for (Point2 p : Geometry.d4) {
+            Tile neighbor = world.tile(beltTile.x + p.x, beltTile.y + p.y);
+            if (neighbor != null && neighbor.build != null && canAcceptFrom(neighbor.build, beltTile)) {
                 return neighbor;
             }
         }
@@ -501,8 +517,9 @@ public class TransportBelt extends Conveyor {
                 if (s != null) {
                     configStartX = s.tile.x;
                     configStartY = s.tile.y;
-                    // 记录起点建筑的坐标，用于后续计算首节传送带的输入方向
-                    Tile source = findSourceBuilding(s.tile);
+                    // 记录起点建筑：直接用 findEffectiveStart 返回的源建筑（点击建筑=该建筑本身），
+                    // 避免 findSourceBuilding 按 d4 右优先重扫时在多建筑情况下误选右侧建筑
+                    Tile source = s.source != null ? s.source : findSourceBuilding(s.tile);
                     configSourceX = source != null ? source.x : -1;
                     configSourceY = source != null ? source.y : -1;
                     // 新的路线：清除上一次残留的末端目标建筑
@@ -590,8 +607,9 @@ public class TransportBelt extends Conveyor {
                 if (s != null) {
                     configStartX = s.tile.x;
                     configStartY = s.tile.y;
-                    // 记录起点建筑的坐标
-                    Tile source = findSourceBuilding(s.tile);
+                    // 记录起点建筑：直接用 findEffectiveStart 返回的源建筑（点击建筑=该建筑本身），
+                    // 避免 findSourceBuilding 按 d4 右优先重扫时在多建筑情况下误选右侧建筑
+                    Tile source = s.source != null ? s.source : findSourceBuilding(s.tile);
                     configSourceX = source != null ? source.x : -1;
                     configSourceY = source != null ? source.y : -1;
                     // 新的路线：清除上一次残留的末端目标建筑
@@ -680,19 +698,35 @@ public class TransportBelt extends Conveyor {
                 Draw.alpha(0.35f);
                 for (int pi = 0; pi < preview.size; pi++) {
                     Tile t = preview.get(pi);
-                    int ridx = previewBlendRegion(preview, pi);
-                    float prot = previewRotation(preview, pi);
+                    // 输出方向（rotation）：朝路径下一格；终点格若邻接可接收建筑则朝该建筑，否则延续路径方向
+                    int outDir;
+                    if (pi < preview.size - 1) {
+                        outDir = t.relativeTo(preview.get(pi + 1).x, preview.get(pi + 1).y);
+                    } else {
+                        Tile endBuild = findEndBuilding(t);
+                        if (endBuild != null) {
+                            outDir = t.relativeTo(endBuild.x, endBuild.y);
+                        } else if (pi > 0) {
+                            outDir = preview.get(pi - 1).relativeTo(t.x, t.y);   // 延续路径方向（朝远离上一格）
+                        } else {
+                            outDir = 0;
+                        }
+                    }
+                    // 输入方向：来自路径上一格；起点格若从源建筑进料则朝源建筑
+                    int inDir;
+                    if (pi > 0) {
+                        inDir = t.relativeTo(preview.get(pi - 1).x, preview.get(pi - 1).y);
+                    } else {
+                        Tile source = world.tile(configSourceX, configSourceY);
+                        inDir = source != null ? t.relativeTo(source.x, source.y) : outDir;
+                    }
+                    int rel = (outDir - inDir + 4) % 4;
+                    int ridx = rel == 2 ? 0 : 1;   // 直道(输入在背面)=0，弯道=1，与 built 的 blendbits 一致
+                    float prot = outDir * 90f;     // Draw.rect 顺时针，与 built 的 rotation*90 一致
                     TextureRegion pr = ridx >= 0 && ridx < regions.length ? regions[ridx][0] : region;
                     float pw = pr.width * pr.scl();
                     float ph = pr.height * pr.scl();
-                    // 弯道处理：顺时针弯道需垂直翻转
-                    if (ridx == 1 && pi > 0 && pi < preview.size - 1) {
-                        int inDir = t.relativeTo(preview.get(pi - 1).x, preview.get(pi - 1).y);
-                        int outDir = t.relativeTo(preview.get(pi + 1).x, preview.get(pi + 1).y);
-                        if (((outDir - inDir + 4) % 4) == 1) { // 顺时针弯道
-                            ph = -ph;
-                        }
-                    }
+                    if (rel == 1) ph = -ph;        // 顺时针弯道垂直翻转，与 built 的 blendscly=-1 一致
                     Draw.rect(pr, t.worldx(), t.worldy(), pw, ph, prot);
                 }
                 Draw.reset();
@@ -715,44 +749,6 @@ public class TransportBelt extends Conveyor {
         if (configuring && previewActive && findEffectiveEnd(hover) == null) {
             drawPlaceText("无效终点", x, y, false);
         }
-    }
-
-    // ============================================================
-    // 预览纹理辅助
-    // ============================================================
-    private int previewBlendRegion(Seq<Tile> path, int idx) {
-        Tile me = path.get(idx);
-        int connMask = 0;
-        for (int d = 0; d < 4; d++) {
-            int nx = me.x + Geometry.d4x(d);
-            int ny = me.y + Geometry.d4y(d);
-            for (int j = 0; j < path.size; j++) {
-                if (j == idx) continue;
-                Tile o = path.get(j);
-                if (o.x == nx && o.y == ny) { connMask |= (1 << d); break; }
-            }
-        }
-        int bits = Integer.bitCount(connMask);
-        if (bits <= 1) return 5;  // 端头
-        // 检查是否直线 (相对方向: 0↔2, 1↔3)
-        for (int d = 0; d < 4; d++) {
-            if ((connMask & (1 << d)) != 0 && (connMask & (1 << ((d + 2) % 4))) != 0) {
-                return 0; // 直线段
-            }
-        }
-        return 1; // 弯道
-    }
-
-    private float previewRotation(Seq<Tile> path, int idx) {
-        Tile me = path.get(idx);
-        Tile next = idx < path.size - 1 ? path.get(idx + 1) : (idx > 0 ? path.get(idx - 1) : null);
-        if (next == null) return 0;
-        int dx = next.x - me.x, dy = next.y - me.y;
-        // Draw.rect 使用顺时针旋转，底座有朝右
-        if (dx > 0) return 0f;    // 右 0°
-        if (dx < 0) return 180f;  // 左 180°
-        if (dy > 0) return 90f;   // 下 270°
-        return 270f;             // 上 90°
     }
 
     // ============================================================
