@@ -1,14 +1,16 @@
 package endfieldindustrylib.EFcontents;
 
-import arc.Core;
-import arc.struct.Seq;
 import endfieldindustrylib.EFworld.ai.FollowAI;
+import endfieldindustrylib.EFworld.unit.Aggeloi.Heavyram;
+import endfieldindustrylib.EFworld.unit.Aggeloi.Ram;
+import endfieldindustrylib.EFworld.unit.Aggeloi.Sting;
+import endfieldindustrylib.EFworld.unit.Landbreakers.Ambusher;
+import endfieldindustrylib.EFworld.unit.Landbreakers.Infiltrator.InfiltratorType;
+import endfieldindustrylib.EFworld.unit.Landbreakers.Raider;
+import endfieldindustrylib.EFworld.unit.Landbreakers.Shield.VanguardShieldType;
+import endfieldindustrylib.EFworld.unit.Landbreakers.Vanguard.VanguardType;
+import endfieldindustrylib.EFworld.unit.Tata;
 import mindustry.ai.UnitCommand;
-import mindustry.content.Fx;
-import mindustry.entities.Damage;
-import mindustry.entities.Effect;
-import static mindustry.gen.Sounds.explosionReactor;
-import mindustry.gen.TankUnit;
 import mindustry.gen.Unit;
 import mindustry.type.UnitType;
 
@@ -21,6 +23,19 @@ import mindustry.type.UnitType;
  */
 public class EFunits {
     public static UnitType tata;
+    public static UnitType ram;
+    public static UnitType heavyram;
+    public static UnitType sting;
+    /** 伏击者（Landbreakers 人形族 T1 远程弩手） */
+    public static UnitType ambusher;
+    /** 突袭者（Landbreakers 人形族 T1 近战砍刀） */
+    public static UnitType raider;
+    /** 潜行者（Landbreakers 人形族 T1 高速刺客） */
+    public static UnitType infiltrator;
+    /** 先锋的盾牌（Landbreakers 人形族，由先锋动态生成并驱动） */
+    public static UnitType vanguardShield;
+    /** 先锋（Landbreakers 人形族 T1 盾戳单位） */
+    public static UnitType vanguard;
     /** 自定义"跟随玩家"命令 */
     public static UnitCommand followCommand;
 
@@ -30,68 +45,23 @@ public class EFunits {
             switchToMove = false;   // 不因右键点击而切换到移动
         }};
 
-        tata = new UnitType("tata") {
-            {
-                // —— 基础属性 ——
-                health = 2500f;
-                speed = 0.15f;
-                hitSize = 16f;
-                armor = 2f;
-                drag = 0.4f;
-                accel = 0.3f;
-                rotateSpeed = 3f;
-                // —— 地面单位 ——
-                flying = false;
-                physics = true;                 // 启动物理碰撞
-                hovering = false;               // 不悬浮，受地面影响
-                canDrown = true;                // 可在深水中淹死
-                canBoost = false;               // 不能起飞
-                omniMovement = false;            // 需转向移动，产生转头效果
-
-                // —— 建造能力 ——
-                buildSpeed = 4.0f;
-                buildRange = 240f;
-
-                // —— 游戏属性 ——
-                isEnemy = false;
-                playerControllable = true;
-                logicControllable = true;
-                useUnitCap = true;
-                hoverable = true;
-                // —— 命令模式 ——
-                commands = Seq.with(
-                    UnitCommand.moveCommand,
-                    UnitCommand.rebuildCommand,
-                    UnitCommand.assistCommand,
-                    EFunits.followCommand
-                );
-                defaultCommand = UnitCommand.moveCommand;
-
-                // —— 显示 ——
-                drawBody = true;
-                drawCell = true;
-                drawItems = true;
-
-                constructor =  TankUnit::create;
-            
-                
-            }
-            // —— 死亡爆炸（等同于钍反应堆） ——
-            @Override
-            public void killed(Unit unit) {
-                Fx.reactorExplosion.at(unit.x, unit.y);
-                Effect.shake(6f, 16f, unit);
-                Damage.damage(null, unit.x, unit.y, 19f * 8f, 5000f, true, true, true);
-                explosionReactor.at(unit, 1f);
-            }
-
-            // —— 临时：使用耀星(Quasar)的贴图 ——
-            @Override
-            public void load() {
-                super.load();
-                region = Core.atlas.find("quasar");
-            }
-        };
+        // 实例化塔塔（具体定义见 EFworld.unit.Tata）
+        tata = new Tata("tata");
+        ram = new Ram("ram");
+        // 实例化重装拉姆（Ram 的 T2 重装版，具体定义见 EFworld.unit.Heavyram）
+        heavyram = new Heavyram("heavyram");
+        // 实例化刺蝎（蝎形四足远程单位，具体定义见 EFworld.unit.Sting）
+        sting = new Sting("sting");
+        // 实例化伏击者（人形弩手，具体定义见 EFworld.unit.Landbreakers.Ambusher）
+        ambusher = new Ambusher("ambusher");
+        // 实例化突袭者（人形砍刀近战，具体定义见 EFworld.unit.Landbreakers.Raider）
+        raider = new Raider("raider");
+        // 实例化潜行者（人形高速刺客，实体定义见 EFworld.unit.Landbreakers.Infiltrator）
+        infiltrator = new InfiltratorType("infiltrator");
+        // 盾牌须先于先锋实例化：先锋单位生成时会动态调用 vanguardShield.spawn 创建盾牌
+        vanguardShield = new VanguardShieldType("vanguard-shield");
+        // 实例化先锋（人形盾戳单位，实体见 EFworld.unit.Landbreakers.Vanguard，类型见 VanguardType）
+        vanguard = new VanguardType("vanguard");
     }
 }
 
