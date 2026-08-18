@@ -40,7 +40,7 @@
 
 > [!Tip]
 >
-> 最低版本要求为 **144**
+> 目前代码的目标版本为 **159.5**
 
 ### 介绍
 
@@ -87,7 +87,7 @@ Q：为什么现在不建议玩？
 A：没写完
 
 Q：我想要体验一下，应该怎么做？
-A：前往 [Release](https://github.com/Hollow-YK/Endfield_Industry_Lib/releases) 下载，并在游戏内通过“导入本地文件”的方式安装本模组。
+A：clone 源码并自行编译 jar ，或前往 [Release](https://github.com/Hollow-YK/Endfield_Industry_Lib/releases) 下载（不推荐），并在游戏内通过“导入本地文件”的方式安装本模组。
 
 Q：安装时出现错误？
 A：如果你使用的是 Android 版，那么这是正常的。目前还没有适配安卓。
@@ -106,10 +106,11 @@ A：如果你使用的是 Android 版，那么这是正常的。目前还没有�
 
 - 参考了 [Mindustry](https://github.com/Anuken/Mindustry) 游戏本体的代码
 - 使用了 [Mindustry Java Mod Template](https://github.com/Anuken/MindustryJavaModTemplate) ，感谢 Anuke 提供的模板
+- 参考了 [NewHorizonMod](https://github.com/Yuria-Shikibe/NewHorizonMod) 的部分代码与设计思路
 
 ### 其它
 
-- 感谢来自`Gaster`（我的一个朋友）的部分贴图
+- 感谢来自`Gaster`（我的一个朋友）的部分贴图和代码
 - ~~`README.md`部分照抄了我的另一个仓库的README~~
 - `README.md`参考了部分开源项目
 - `README.md`使用了 [shields.io](https://shields.io/) 提供的内容

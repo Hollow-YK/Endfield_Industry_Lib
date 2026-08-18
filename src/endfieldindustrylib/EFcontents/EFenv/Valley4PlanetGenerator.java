@@ -703,16 +703,6 @@ public class Valley4PlanetGenerator extends PlanetGenerator {
             }
         }
 
-        // ===== 矿物 =====
-        pass((x, y) -> {
-            if (block == Blocks.air && !nearWall(x, y)) {
-                if (noise(x + 150, y + 200, 4, 0.7f, 50f, 1f) > 0.72f) {
-                    // TODO: EFitems.originiumOre
-                }
-                if (noise(x + 999, y + 600, 5, 0.6f, 45f, 1f) > 0.82f) {
-                    // TODO: EFitems.amethystOre
-                }
-            }
-        });
+        // ===== 矿物（留空，后续实现自定义矿物）=====
     }
 }
