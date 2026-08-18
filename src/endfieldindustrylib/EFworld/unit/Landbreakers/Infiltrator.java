@@ -8,9 +8,11 @@ import arc.math.Mathf;
 import arc.util.Time;
 import endfieldindustrylib.EFworld.ai.InfiltratorAI;
 import static mindustry.Vars.headless;
+import mindustry.ai.types.CommandAI;
 import mindustry.content.Fx;
 import mindustry.entities.Units;
 import mindustry.entities.bullet.BulletType;
+import mindustry.entities.units.WeaponMount;
 import mindustry.gen.EntityMapping;
 import mindustry.gen.Groups;
 import mindustry.gen.MechUnit;
@@ -60,20 +62,14 @@ public class Infiltrator extends MechUnit{
     private float dodgeTimer = 0f;
     /** 潜行受击检测半径（世界单位）：3 格 */
     private static final float DETECT_RADIUS = 3f * 8f;
-    /** 横跳突发速度（世界单位/帧）：阻尼滑行后约 1~2 格（DODGE_VEL / drag） */
-    private static final float DODGE_VEL = 8f;
+    /** 判定"子弹正朝本单位飞来"的夹角阈值（度）：弹道方向与"子弹→本单位"方向夹角小于此值才算威胁，避免对路过/远处子弹误闪避 */
+    private static final float DODGE_ANGLE = 60f;
+    /** 横跳突发速度（世界单位/帧）：阻尼滑行 ≈ 3.2/0.4 = 8 单位 = 1 格（比原 2.5 格减少 1.5 格） */
+    private static final float DODGE_VEL = 3.2f;
     /** 横跳冷却（帧）：0.5 秒 */
-    private static final float DODGE_COOLDOWN = 30f;
+    private static final float DODGE_COOLDOWN = 10f;
     /** 受击检测中间标志（在遍历 lambda 内写入） */
     private boolean threatNear = false;
-
-    @Override
-    public boolean checkTarget(boolean targetAir, boolean targetGround){
-        // 潜行：完全不可索敌（低仇恨）+ 子弹穿透（敌方子弹碰撞跳过它，不消耗、依旧向后飞）
-        if(stealth) return false;
-        return super.checkTarget(targetAir, targetGround);
-    }
-
     @Override
     public void damage(float amount){
         // 潜行：所有伤害无效（普通子弹因 checkTarget=false 已穿透不命中；此处兜底范围爆炸等）
@@ -85,6 +81,12 @@ public class Infiltrator extends MechUnit{
     public void update(){
         super.update();
 
+        // 玩家控制/指挥：解除潜行（隐身仅供 AI 潜行；玩家接管即显形、可被击杀）
+        if(isPlayer() || controller() instanceof CommandAI){
+            stealth = false;
+            windup = 0f;
+        }
+
         // 潜行受击闪避：附近有敌方子弹接近 → 向左右横跳一步（有冷却）
         if(stealth && (dodgeTimer -= Time.delta) <= 0f && enemyBulletNear()){
             dodgeTimer = DODGE_COOLDOWN;
@@ -92,11 +94,12 @@ public class Infiltrator extends MechUnit{
         }
     }
 
-    /** 附近是否有敌方子弹正在接近（碰撞检测半径内） */
+    /** 附近是否有敌方子弹正朝本单位飞来（弹道方向与"子弹→本单位"方向夹角 < DODGE_ANGLE） */
     private boolean enemyBulletNear(){
         threatNear = false;
         Groups.bullet.intersect(x - DETECT_RADIUS, y - DETECT_RADIUS, DETECT_RADIUS * 2f, DETECT_RADIUS * 2f, b -> {
-            if(b.team != team && b.type.hittable && b.within(x, y, DETECT_RADIUS)){
+            if(b.team != team && b.type.hittable && b.within(x, y, DETECT_RADIUS)
+                && Angles.angleDist(b.rotation(), b.angleTo(x, y)) < DODGE_ANGLE){
                 threatNear = true;
             }
         });
@@ -115,6 +118,24 @@ public class Infiltrator extends MechUnit{
     public static Infiltrator create(){
         return new Infiltrator();
     }
+
+    /** 潜行者专属武器：实际开火（shoot 创建子弹）时立刻解除潜行（显形、可被击杀） */
+    public static class InfiltratorWeapon extends Weapon{
+        public InfiltratorWeapon(String name){
+            super(name);
+        }
+
+        @Override
+        protected void shoot(Unit unit, WeaponMount mount, float shootX, float shootY, float rotation){
+            // 实际发动攻击（开火）→ 立刻解除潜行
+            if(unit instanceof Infiltrator e){
+                e.stealth = false;
+                e.windup = 0f;
+            }
+            super.shoot(unit, mount, shootX, shootY, rotation);
+        }
+    }
+
     public static class InfiltratorType extends UnitType{
     /** 半血猛跳突发速度（世界单位/帧）：阻尼滑行 ≈ 26/0.4 = 65 单位 ≈ 8 格 */
     private static final float JUMP_VEL = 26f;
@@ -151,8 +172,8 @@ public class Infiltrator extends MechUnit{
         mechFrontSway = 0.25f;
         baseRotateSpeed = 10f;          // 身体转向快（高速刺客）；mechStride 由引擎按 hitSize 自动计算
 
-        // —— 武器：短刃突刺（近战，攻速快） ——
-        weapons.add(new Weapon("endfield-industry-lib-infiltrator-dagger"){{
+        // —— 武器：短刃突刺（近战，攻速快）；实际开火时解除潜行（见 InfiltratorWeapon.shoot） ——
+        weapons.add(new InfiltratorWeapon("endfield-industry-lib-infiltrator-dagger"){{
             mirror = false;            // 单个短刃，不镜像成对
             top = true;
             layerOffset = 0.02f;       // 绘制在身体之上
@@ -182,20 +203,22 @@ public class Infiltrator extends MechUnit{
         aiController = () -> new InfiltratorAI();
     }
 
-    /** 攻击模式下首次进入半血 → 向后猛跳 8 格 + 烟雾弹粒子 + 切回潜行（隐身撤退）。
-     *  放在 UnitType.update 保证对每个该类型单位必然执行（与实体类无关）。 */
+    /** 攻击模式下首次进入半血 → 闪烁并直接进入潜行（隐身撤退）。
+     *  放在 UnitType.update 保证对每个该类型单位必然执行（与实体类无关）。
+     *  仅 AI 潜行单位触发；玩家控制/指挥时不触发 AI 隐身逃跑。 */
     @Override
     public void update(Unit unit){
         super.update(unit);
 
-        if(unit instanceof Infiltrator ent && !ent.stealth && !ent.halfHpJumped && unit.healthf() <= 0.5f){
+        if(unit instanceof Infiltrator ent && !ent.stealth && !ent.halfHpJumped && unit.healthf() <= 0.5f
+            && !unit.isPlayer() && !(unit.controller() instanceof CommandAI)){
             ent.halfHpJumped = true;
-            jumpBack(unit, ent);
+            blinkOut(unit, ent);
         }
     }
 
-    /** 向后猛跳 8 格（远离最近敌人）并产生烟雾弹粒子效果，随后切回潜行 */
-    private void jumpBack(Unit unit, Infiltrator ent){
+    /** 半血逃跑：向后猛跳 8 格（远离最近敌人）+ 闪烁火花 + 直接进入潜行（无需等 2 秒） */
+    private void blinkOut(Unit unit, Infiltrator ent){
         // 向后 = 远离最近敌人；无敌人则朝当前朝向反方向
         Unit enemy = Units.closestEnemy(unit.team, unit.x, unit.y, 30f * 8f, u -> true);
         float dir = enemy != null ? unit.angleTo(enemy) + 180f : unit.rotation + 180f;
@@ -203,15 +226,13 @@ public class Infiltrator extends MechUnit{
         // 猛跳 8 格（vel 直驱爆发，阻尼滑行 ≈ jumpVel/drag）
         unit.vel.add(Angles.trnsx(dir, JUMP_VEL), Angles.trnsy(dir, JUMP_VEL));
 
-        // 烟雾弹一样的粒子：中心烟团 + 周围多团扩散烟
+        // 闪烁效果：彩色火花（半血瞬间闪烁后进入潜行）
         if(!headless){
-            Fx.smoke.at(unit.x, unit.y);
-            for(int i = 0; i < 6; i++){
-                Fx.smoke.at(unit.x + Mathf.range(6f), unit.y + Mathf.range(6f), Mathf.random(360f), Color.gray);
-            }
+            Fx.colorSpark.at(unit.x, unit.y);
+            Fx.colorSpark.at(unit.x + Mathf.range(4f), unit.y + Mathf.range(4f), Color.sky);
         }
 
-        // 切回潜行（隐身撤退），取消进行中的前摇
+        // 直接进入潜行（隐身撤退），取消进行中的前摇
         ent.stealth = true;
         ent.windup = 0f;
     }

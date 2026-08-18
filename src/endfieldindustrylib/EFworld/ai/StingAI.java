@@ -27,12 +27,12 @@ import mindustry.world.blocks.environment.Floor;
 public class StingAI extends GroundAI {
     /** 索敌半径（世界单位）：20 格 */
     private static final float detectRange = 20f * tilesize;
-    /** 武器射程（世界单位，与蝎尾炮台子弹射程匹配，留出弹道余量）：15 格 */
-    private static final float weaponRange = 15f * tilesize;
+    /** 武器射程（世界单位，与蝎尾炮台子弹射程 96 匹配）：12 格 */
+    private static final float weaponRange = 12f * tilesize;
     /** 贴脸安全距离（世界单位）：目标过近时后退拉开 */
     private static final float minRange = 5f * tilesize;
     /** 推进/后撤的平滑步长 */
-    private static final float attackSmooth = 40f;
+    private static final float attackSmooth = 5f;
     /** 奔跑扬尘计时（帧） */
     private float dustTimer = 0f;
 
@@ -95,7 +95,7 @@ public class StingAI extends GroundAI {
     private void attackMove(Position aim){
         float dst = unit.dst(aim);
 
-        if(dst > weaponRange){
+        if(dst > weaponRange-0.1f){
             // 射程外：向目标推进，到达射程边缘即停
             moveTo(aim, weaponRange, attackSmooth);
         }else if(dst < minRange){
