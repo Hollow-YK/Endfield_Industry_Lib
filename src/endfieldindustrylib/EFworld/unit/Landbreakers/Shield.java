@@ -5,6 +5,7 @@ import mindustry.ai.types.GroundAI;
 import mindustry.content.Fx;
 import mindustry.gen.EntityMapping;
 import mindustry.gen.UnitEntity;
+import mindustry.graphics.Layer;
 import mindustry.type.UnitType;
 
 /**
@@ -85,6 +86,7 @@ public class Shield extends UnitEntity{
         drawCell = false;
         drawItems = false;
         drawSoftShadow = false;
+        groundLayer = 62;
         useUnitCap = false;       // 不占用单位容量
         allowedInPayloads = false; // 载荷源/载荷系统无法装载、搬运或产出盾牌（盾牌只由先锋生成驱动）
 

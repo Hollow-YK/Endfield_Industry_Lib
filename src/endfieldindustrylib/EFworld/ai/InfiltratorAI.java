@@ -5,6 +5,7 @@ import arc.math.geom.Vec2;
 import arc.util.Time;
 import endfieldindustrylib.EFworld.unit.Landbreakers.Infiltrator;
 import static mindustry.Vars.tilesize;
+import static mindustry.Vars.unitCollisionRadiusScale;
 import mindustry.ai.types.GroundAI;
 import mindustry.entities.Units;
 import mindustry.gen.Building;
@@ -17,8 +18,8 @@ import mindustry.gen.Unit;
  * <ul>
  *   <li><b>潜行接近</b>（默认，{@code Infiltrator.stealth}=true）：低仇恨接近敌人
  *       （潜行中不可索敌、子弹穿透、受击横跳），直到进入突刺距离 {@link #hitRangeFor}。</li>
- *   <li><b>攻击前摇</b>：进入突刺距离后解除潜行（暴露、可被锁定），边贴近边蓄力
- *       {@code WINDUP_TIME}（0.67 秒）；前摇结束瞬间武器突刺一次。</li>
+ *   <li><b>攻击前摇</b>：进入突刺距离后蓄力 {@code WINDUP_TIME}（0.67 秒），蓄力期间保持潜行；
+ *       前摇结束瞬间解除潜行并突刺（单体二连击）。</li>
  *   <li><b>攻击循环</b>：每次突刺后立即进入下一次前摇（前摇时长≥装填时间，
  *       保证每次攻击都带前摇）；首次被打到半血时由 {@code Infiltrator} 触发
  *       向后猛跳 8 格 + 烟雾弹并切回潜行（隐身撤退）。</li>
@@ -29,8 +30,6 @@ import mindustry.gen.Unit;
 public class InfiltratorAI extends GroundAI{
     /** 索敌半径（世界单位）：22.5 格 */
     public static final float detectRange = 15f * tilesize * 1.5f;
-    /** 近战命中距离基数（世界单位） */
-    protected static final float meleeRange = 6f;
     /** 突刺开火窗口（帧）：前摇结束后保持射击开启的帧数，保证武器确实开火一次 */
     protected static final float strikeWindowLen = 3f;
     /** 与友军保持的最小距离（世界单位）：5 格 */
@@ -85,13 +84,11 @@ public class InfiltratorAI extends GroundAI{
 
         float dst = unit.dst(nextTarget);
 
-        // 潜行接近：进入突刺距离 → 开始蓄力（仍保持潜行，实际发动攻击时才解除潜行）
-        if(ent != null && ent.stealth){
-            strikeWindow = 0f;
-            ent.windup = 0f;
+        // 潜行接近：仅在未进入蓄力/突刺循环时生效（避免每帧重置前摇导致永不攻击）
+        if(ent != null && ent.stealth && ent.windup <= 0f && strikeWindow <= 0f){
             unit.controlWeapons(true, false);
             if(dst <= hitRangeFor(nextTarget)){
-                ent.windup = Infiltrator.WINDUP_TIME;   // 蓄力（潜行中，暂不解除）
+                ent.windup = Infiltrator.WINDUP_TIME;   // 进入突刺距离：开始蓄力（仍保持潜行，突刺瞬间才解除）
             }else{
                 moveWithSeparation(nextTarget, hitRangeFor(nextTarget));
                 unit.lookAt(nextTarget);
@@ -112,11 +109,26 @@ public class InfiltratorAI extends GroundAI{
             return;
         }
 
-        // 突刺窗口：短暂开火瞬间（武器突刺一次），随后停止；解除潜行在 InfiltratorWeapon.shoot（开火瞬间）里
+        // 突刺窗口：首帧解除潜行并直接执行单体二连击（由 AI 结算，不依赖武器开火时序）
         if(strikeWindow > 0f){
+            boolean first = strikeWindow >= strikeWindowLen;   // 刚进入突刺窗口的那一帧
             strikeWindow -= Time.delta;
-            unit.controlWeapons(true, true);
-            unit.aim(nextTarget);
+            if(ent != null){
+                // 仅在仍处于近战触达距离内才开火：半血后跳会把单位弹开 8 格，
+                // 若不校验就会在远处"远程突刺"（strike 无距离限制，锁定即命中）
+                boolean inReach = unit.within(nextTarget, hitRangeFor(nextTarget) + 4f);
+                if(inReach){
+                    ent.stealth = false;
+                    ent.windup = 0f;
+                    if(first){
+                        ent.strike(nextTarget.getX(), nextTarget.getY());
+                    }
+                }else{
+                    // 已被弹开/远离：放弃本次突刺并保持潜行，重新贴近再打（不暴露也不远程白嫖）
+                    strikeWindow = 0f;
+                }
+            }
+            unit.controlWeapons(true, false);
             unit.lookAt(nextTarget);
             if(strikeWindow <= 0f){
                 unit.controlWeapons(true, false);
@@ -164,10 +176,17 @@ public class InfiltratorAI extends GroundAI{
         });
     }
 
-    /** 突刺命中距离：近战基数 + 目标命中体积一半（贴近到突刺能命中的距离，不再额外加自身半径/缓冲） */
+    /** 突刺停止距离：停在敌人/建筑身前（不顶入物理碰撞区），确保前摇能触发、突刺能命中 */
     protected float hitRangeFor(Position aim){
-        float targetHit = aim instanceof Unit u ? u.hitSize : (aim instanceof Building b ? b.hitSize() : 0f);
-        return meleeRange + targetHit * 0.5f;
+        float own = unit.hitSize;
+        if(aim instanceof Unit u){
+            // 单位：双方物理碰撞半径之和 + 缓冲（停在敌人身前，不顶着跑）
+            return (own + u.hitSize) * unitCollisionRadiusScale + 2f;
+        }else if(aim instanceof Building b){
+            // 建筑：建筑半格占地 + 自身碰撞半径 + 缓冲
+            return b.block.size * tilesize / 2f + own * unitCollisionRadiusScale + 2f;
+        }
+        return own + 4f;
     }
 
     /** 索敌：敌方地面单位优先；无单位时兜底建筑（炮台>建筑>墙体），

@@ -8,15 +8,22 @@ import arc.math.Mathf;
 import arc.util.Time;
 import endfieldindustrylib.EFworld.ai.InfiltratorAI;
 import static mindustry.Vars.headless;
+import static mindustry.Vars.tilesize;
+import static mindustry.Vars.world;
 import mindustry.ai.types.CommandAI;
 import mindustry.content.Fx;
+import mindustry.core.World;
+import mindustry.entities.Effect;
+import mindustry.entities.Fires;
 import mindustry.entities.Units;
 import mindustry.entities.bullet.BulletType;
-import mindustry.entities.units.WeaponMount;
+import mindustry.gen.Building;
 import mindustry.gen.EntityMapping;
 import mindustry.gen.Groups;
+import mindustry.gen.Healthc;
 import mindustry.gen.MechUnit;
 import mindustry.gen.Unit;
+import mindustry.type.StatusEffect;
 import mindustry.type.UnitType;
 import mindustry.type.Weapon;
 
@@ -29,7 +36,7 @@ import mindustry.type.Weapon;
  *       <li>{@link #checkTarget} 返回 false → 敌方 AI 无法索敌（极低仇恨值），
  *           子弹碰撞也跳过它 → <b>子弹穿透、不消耗</b>（依旧向后飞）</li>
  *       <li>{@link #damage} 拦截 → 所有伤害无效（兜底范围爆炸等）</li>
- *       <li>附近有敌方子弹接近时向左右横跳一步（{@link #dodge}，带冷却）</li>
+ *       <li>附近有敌方子弹/电弧/火焰接近时横跳闪避（{@link #dodge}，带冷却；脚下有火时朝远离火区方向跳）</li>
  *     </ul>
  *   </li>
  *   <li><b>攻击前摇（{@link #stealth}=false）</b>：进入突刺距离后解除潜行（暴露、可被锁定），
@@ -55,8 +62,25 @@ public class Infiltrator extends MechUnit{
     public boolean halfHpJumped = false;
     /** 攻击前摇剩余时间（帧），>0 表示正在前摇（已解除潜行、暴露可被锁定） */
     public float windup = 0f;
-    /** 攻击前摇时长（帧）：0.67 秒（≥ 武器装填 25 帧，保证前摇结束即可突刺） */
-    public static final float WINDUP_TIME = 40f;
+    /** 攻击前摇时长（帧）：约 0.93 秒；加上突刺窗口后攻击间隔 ≈ 1 秒（攻速） */
+    public static final float WINDUP_TIME = 60f;
+    /** 单体突刺锁定半径（世界单位）：以 AI 瞄准点为中心寻找目标 */
+    public static final float STRIKE_RANGE = 12f;
+    /** 单体单次打击伤害（二连击共两次） */
+    public static final float STRIKE_DAMAGE = 14f;
+    /** 二连击第二击延迟（帧）：0.1 秒 */
+    public static final float SECOND_HIT_DELAY = 12f;
+    /** 两道划痕的随机角度差（度）：第二道 ≈ 第一道相反方向 ± 此范围 */
+    public static final float SLASH_ANGLE_RANGE = 40f;
+    /** 红色划痕特效：沿 e.rotation 方向在目标身上快速划过一道红色短线（快速闪过随即淡出） */
+    public static final Effect slashFx = new Effect(8f, e -> {
+        float a = e.rotation;
+        Draw.color(Color.red, e.fout());
+        Lines.stroke(2.2f * e.fout());
+        Lines.line(e.x - Angles.trnsx(a, 9f), e.y - Angles.trnsy(a, 9f),
+                   e.x + Angles.trnsx(a, 9f), e.y + Angles.trnsy(a, 9f));
+        Draw.reset();
+    });
 
     /** 潜行受击横跳冷却计时（帧） */
     private float dodgeTimer = 0f;
@@ -72,9 +96,16 @@ public class Infiltrator extends MechUnit{
     private boolean threatNear = false;
     @Override
     public void damage(float amount){
-        // 潜行：所有伤害无效（普通子弹因 checkTarget=false 已穿透不命中；此处兜底范围爆炸等）
+        // 潜行：所有伤害无效（普通子弹因 checkTarget=false 已穿透不命中；此处兜底范围爆炸/电弧/火焰等）
         if(stealth) return;
         super.damage(amount);
+    }
+
+    /** 潜行：免疫异常状态（燃烧/触电等会绕过 damage() 拦截，由火焰/电弧/特殊弹附带，需单独拦下） */
+    @Override
+    public void apply(StatusEffect effect, float duration){
+        if(stealth) return;
+        super.apply(effect, duration);
     }
 
     @Override
@@ -87,28 +118,72 @@ public class Infiltrator extends MechUnit{
             windup = 0f;
         }
 
-        // 潜行受击闪避：附近有敌方子弹接近 → 向左右横跳一步（有冷却）
-        if(stealth && (dodgeTimer -= Time.delta) <= 0f && enemyBulletNear()){
+        // 潜行受击闪避：附近有威胁（敌方子弹/电弧/火焰）→ 横跳闪避（有冷却）
+        if(stealth && (dodgeTimer -= Time.delta) <= 0f && hasThreat()){
             dodgeTimer = DODGE_COOLDOWN;
             dodge();
         }
     }
 
-    /** 附近是否有敌方子弹正朝本单位飞来（弹道方向与"子弹→本单位"方向夹角 < DODGE_ANGLE） */
-    private boolean enemyBulletNear(){
+    /** 附近是否有威胁需要闪避：敌方子弹朝本单位飞来，或附近有敌方电弧/闪电，或脚下附近有火焰
+     *  （电弧/火焰无子弹直接伤害，且可能附带异常状态） */
+    private boolean hasThreat(){
         threatNear = false;
+        // 1. 敌方子弹：普通可命中且朝本单位飞来，或电弧/闪电类（即使不可被子弹碰撞也会直接伤害）
         Groups.bullet.intersect(x - DETECT_RADIUS, y - DETECT_RADIUS, DETECT_RADIUS * 2f, DETECT_RADIUS * 2f, b -> {
-            if(b.team != team && b.type.hittable && b.within(x, y, DETECT_RADIUS)
-                && Angles.angleDist(b.rotation(), b.angleTo(x, y)) < DODGE_ANGLE){
+            if(!threatNear && b.team != team && b.within(x, y, DETECT_RADIUS)
+                && ((b.type.hittable && Angles.angleDist(b.rotation(), b.angleTo(x, y)) < DODGE_ANGLE) || b.type.lightning > 0)){
                 threatNear = true;
             }
         });
+        // 2. 附近火焰（无子弹直接灼烧）
+        if(!threatNear && fireNear()){
+            threatNear = true;
+        }
         return threatNear;
     }
 
-    /** 向左右随机一边横跳一步 */
+    /** 附近（约 2 格内）是否有火焰（无子弹直接灼烧，可能附带燃烧状态） */
+    private boolean fireNear(){
+        int tx = World.toTile(x), ty = World.toTile(y);
+        for(int dx = -2; dx <= 2; dx++){
+            for(int dy = -2; dy <= 2; dy++){
+                if(Fires.has(tx + dx, ty + dy)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** 附近最近火焰的世界坐标 {x,y}（用于朝远离火焰方向跳出火区），无则 null */
+    private float[] nearestFire(){
+        float[] best = null;
+        float bestD = Float.MAX_VALUE;
+        int tx = World.toTile(x), ty = World.toTile(y);
+        for(int dx = -2; dx <= 2; dx++){
+            for(int dy = -2; dy <= 2; dy++){
+                if(Fires.has(tx + dx, ty + dy)){
+                    float wx = (tx + dx) * tilesize + tilesize / 2f;
+                    float wy = (ty + dy) * tilesize + tilesize / 2f;
+                    float d = Mathf.dst(wx, wy, x, y);
+                    if(d < bestD){
+                        bestD = d;
+                        best = new float[]{wx, wy};
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** 闪避横跳：脚下有火焰→朝远离火焰方向跳出火区；否则向左右随机一边横跳一步 */
     private void dodge(){
-        float dir = baseRotation() + (Mathf.chance(0.5f) ? 90f : -90f);
+        float dir;
+        float[] f = nearestFire();
+        if(f != null){
+            dir = Mathf.atan2(y - f[1], x - f[0]);   // 远离火焰
+        }else{
+            dir = baseRotation() + (Mathf.chance(0.5f) ? 90f : -90f);
+        }
         vel.add(Angles.trnsx(dir, DODGE_VEL), Angles.trnsy(dir, DODGE_VEL));
         if(!headless){
             Fx.unitLandSmall.at(x, y, hitSize / 8f, team.color);
@@ -119,20 +194,49 @@ public class Infiltrator extends MechUnit{
         return new Infiltrator();
     }
 
-    /** 潜行者专属武器：实际开火（shoot 创建子弹）时立刻解除潜行（显形、可被击杀） */
-    public static class InfiltratorWeapon extends Weapon{
-        public InfiltratorWeapon(String name){
-            super(name);
+    /** 单体二连击（由 InfiltratorAI 突刺窗口触发）：锁定最近的敌地面单位或建筑，
+     *  两次单体打击，并在目标身上打出两道相反方向、随机角度差的红色划痕 */
+    public void strike(float aimX, float aimY){
+        // 优先以瞄准点为中心找最近的敌地面单位（单体，非范围）
+        Unit target = Units.closestEnemy(team, aimX, aimY, STRIKE_RANGE, u -> u.checkTarget(false, true) && !u.dead);
+        if(target == null){
+            // 兜底：以自身为中心再找一次（避免瞄准点偏离导致锁定失败）
+            target = Units.closestEnemy(team, x, y, STRIKE_RANGE, u -> u.checkTarget(false, true) && !u.dead);
         }
-
-        @Override
-        protected void shoot(Unit unit, WeaponMount mount, float shootX, float shootY, float rotation){
-            // 实际发动攻击（开火）→ 立刻解除潜行
-            if(unit instanceof Infiltrator e){
-                e.stealth = false;
-                e.windup = 0f;
+        if(target != null){
+            // 近战触达校验（兜底，防止后跳/击退把本体弹开后仍在远处"远程突刺"）：
+            // 目标必须在本体 + 目标碰撞半径 + 余量的可触及范围内才结算伤害
+            if(within(target, hitSize + target.hitSize + 4f)){
+                strikeTarget(target.x(), target.y(), target);
             }
-            super.shoot(unit, mount, shootX, shootY, rotation);
+            return;
+        }
+        // 兜底：命中瞄准点所在格的敌方可攻击建筑（同样校验建筑占地面积内的触达距离）
+        Building b = world.buildWorld(aimX, aimY);
+        if(b != null && b.team != team && b.block.targetable && b.isValid()
+            && b.dst(this) < b.block.size * tilesize / 2f + hitSize + 4f){
+            strikeTarget(b.x(), b.y(), b);
+        }
+    }
+
+    /** 对目标执行二连击（两次单体伤害，第二击略延迟）+ 两道相反方向红色划痕 */
+    private void strikeTarget(float tx, float ty, Healthc target){
+        // 第一击
+        if(!target.dead()) target.damage(STRIKE_DAMAGE);
+
+        // 第二击（略延迟，形成连击感）
+        Time.run(SECOND_HIT_DELAY, () -> {
+            if(target.isValid() && !target.dead()){
+                target.damage(STRIKE_DAMAGE);
+            }
+        });
+
+        // 划痕特效：第一道随机方向，第二道与之相反并带随机角度差（与第二击同步）
+        if(!headless){
+            float a1 = Mathf.random(360f);
+            float a2 = a1 + 180f + Mathf.range(SLASH_ANGLE_RANGE);
+            slashFx.at(tx, ty, a1, team.color);
+            Time.run(SECOND_HIT_DELAY, () -> slashFx.at(tx, ty, a2, team.color));
         }
     }
 
@@ -172,15 +276,15 @@ public class Infiltrator extends MechUnit{
         mechFrontSway = 0.25f;
         baseRotateSpeed = 10f;          // 身体转向快（高速刺客）；mechStride 由引擎按 hitSize 自动计算
 
-        // —— 武器：短刃突刺（近战，攻速快）；实际开火时解除潜行（见 InfiltratorWeapon.shoot） ——
-        weapons.add(new InfiltratorWeapon("endfield-industry-lib-infiltrator-dagger"){{
+        // —— 武器：短刃（纯视觉，不实际开火）。攻击由 InfiltratorAI 突刺窗口直接结算（Infiltrator.strike） ——
+        weapons.add(new Weapon("endfield-industry-lib-infiltrator-dagger"){{
             mirror = false;            // 单个短刃，不镜像成对
             top = true;
             layerOffset = 0.02f;       // 绘制在身体之上
             x = 0f; y = 6f;            // 握刃位置（正前方）
             shootY = 6f;
             rotate = false;            // 固定朝前：Mech 身体（baseRotation）朝敌人即命中
-            controllable = true;       // 由 AI 控制开火时机：前摇结束才突刺（不做自动索敌）
+            controllable = false;      // 不参与武器开火：突刺由 AI 直接结算，避免自动/时序开火绕过前摇
             autoTarget = false;
             reload = 25f;              // 攻速快（刺客）
             shootCone = 50f;
@@ -190,8 +294,9 @@ public class Infiltrator extends MechUnit{
                 speed = 0f;
                 lifetime = 1f;
                 instantDisappear = true;   // 立即突刺
-                splashDamage = 22f;        // 突刺伤害（刺客：低单发、高攻速）
-                splashDamageRadius = 22f;
+                // 单体二连击：伤害与特效由 Infiltrator.strike 结算，此处不创建子弹
+                splashDamage = 0f;
+                splashDamageRadius = 0f;
                 collidesAir = false;       // 仅攻击地面目标
                 collidesGround = true;
                 hittable = false;

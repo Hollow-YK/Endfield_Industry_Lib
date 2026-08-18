@@ -20,10 +20,9 @@ import mindustry.type.Weapon;
  * 走路线 A（引擎原生 Mech 人形机甲）：两腿交替迈步 + 身体随步伐摆动，无需多帧腿部动画。
  */
 public class Ambusher extends UnitType{
-
+  
     public Ambusher(String name){
         super(name);
-
         // —— 基础属性：敏捷脆皮远程（T1） ——
         health = 180f;
         speed = 0.5f;
@@ -64,12 +63,13 @@ public class Ambusher extends UnitType{
             reload = 180f;             // 装填较慢 → AI 装填时找掩体
             recoil = 2.5f;             // 弩后坐
             shake = 1f;
-            shootCone = 25f;
+            shootCone = 6f;            // 射击锥角收窄：rotate=false 弹道=准星方向+身体偏角，锥角大→移动中乱射偏 25° 打不中；收窄后先对准再射
             bullet = new BasicBulletType(5f, 25f){{
-                lifetime = 36f;        // 射程 ≈ 5*36 = 180（约 22.5 格），与 AI 的 18 格交战距离匹配
+                lifetime = 27f;        // 射程 ≈ 5*27 = 135（约 16.9 格），略大于 AI 的 16 格交战距离（确保 16 格处命中）
                 width = 3f;            // 更细
                 height = 12f;          // 更长 → 细长箭矢
                 drag = 0f;
+                keepVelocity = false;  // 不继承本体移动动量：走位/闪避时开火弹道不被带偏（打得更准）
                 collides = true;
                 collidesAir = true;    // 可对空
                 collidesGround = true;
@@ -90,5 +90,8 @@ public class Ambusher extends UnitType{
 
         // —— 战术 AI：换弹找掩体 + 被近身逃离 ——
         aiController = () -> new AmbusherAI();
+
+        // ⚠️ 临时调试开关：开启地图悬浮文本（状态/目标/寻路路径）+ 终端计划日志（调试完删除此行）
+        AmbusherAI.debug = true;
     }
 }

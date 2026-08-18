@@ -61,7 +61,7 @@ public class Raider extends UnitType{
             rotate = false;            // 固定朝前：Mech 身体（baseRotation）朝敌人即命中
             controllable = false;
             autoTarget = true;         // 自动索敌挥砍
-            reload = 45f;              // 挥砍频率（帧）
+            reload = 100f;              // 挥砍频率（帧）
             shootCone = 70f;           // 宽锥角 → 扇形横扫
             recoil = -1f;
             shake = 0f;

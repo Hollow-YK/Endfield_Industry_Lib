@@ -4,6 +4,8 @@ import arc.math.Angles;
 import arc.math.Mathf;
 import endfieldindustrylib.EFcontents.EFunits;
 import endfieldindustrylib.EFworld.ai.VanguardAI;
+import static mindustry.Vars.tilesize;
+import mindustry.entities.Units;
 import mindustry.entities.bullet.BulletType;
 import mindustry.gen.EntityMapping;
 import mindustry.gen.Groups;
@@ -18,8 +20,8 @@ import mindustry.type.Weapon;
  * <ul>
  *   <li>单位生成时（{@link #add}）创建一面 {@link VanguardShield} 盾牌</li>
  *   <li>存档载入时通过 {@link #shieldId} 找回已保存的盾牌，避免重复生成孤儿盾</li>
- *   <li>每帧把盾牌驱动到本体正前方（{@code baseRotation} 方向），朝向与本体一致
- *       → 从正面来的伤害被盾牌吸收</li>
+ *   <li>每帧把盾牌驱动到本体正前方（{@code rotation} 方向），朝向与本体一致
+ *       → 从正面来的子弹被盾牌物理命中吸收；<b>正面近战</b>由 {@link #damage} 检测伤害来源后转发给盾牌</li>
  *   <li>本体移除/死亡时盾牌一并移除</li>
  *   <li>{@link #dropShield()} 让盾牌脱落消失（预留给"物理效果"异常 TODO 触发）</li>
  * </ul>
@@ -47,6 +49,10 @@ public class Vanguard extends MechUnit{
     private static final float SHIELD_DIST = 7f;
     /** 持盾减伤比例（0.5 = 拥有盾牌时本体受到的伤害减半） */
     private static final float SHIELD_DAMAGE_REDUCTION = 0.5f;
+    /** 正面近战判定：攻击者贴身距离（世界单位，4 格，覆盖本族近战 splash 半径） */
+    private static final float MELEE_RANGE = 4f * tilesize;
+    /** 正面判定圆锥半角（度）：相对盾牌朝向（rotation）的夹角，盾牌覆盖的正面范围 */
+    private static final float FRONT_CONE = 75f;
 
     @Override
     public void add(){
@@ -116,14 +122,37 @@ public class Vanguard extends MechUnit{
         }
     }
 
-    /** 持盾减伤：拥有盾牌时本体受到的伤害减半（50% 减伤） */
+    /** 持盾减伤：拥有盾牌时本体受到的伤害减半（50% 减伤）；
+     *  正面近战伤害直接转发给盾牌（消耗盾牌耐久，本体不扣血、不触发 50% 减伤） */
     @Override
     public void damage(float amount){
+        // 正面近战：检测到盾牌朝向正前方有贴身敌方攻击者 → 把伤害转发给盾牌
+        if(hasShield() && shieldUnit != null && shieldUnit.isAdded() && frontMeleeAttacker() != null){
+            shieldUnit.damage(amount);
+            return;
+        }
         if(hasShield()){
             super.damage(amount * (1f - SHIELD_DAMAGE_REDUCTION));
         }else{
             super.damage(amount);
         }
+    }
+
+    /** 检测正前方的近战伤害来源：返回一个位于盾牌朝向（rotation）前方圆锥内、且贴身距离内的敌方单位。
+     *  damage() 不携带来源参数，只能从攻击者位置推断（远程单位不会贴身到 4 格内） */
+    private Unit frontMeleeAttacker(){
+        final Unit[] best = {null};
+        final float[] bestD = {Float.MAX_VALUE};
+        Units.nearbyEnemies(team, x, y, MELEE_RANGE, u -> {
+            if(u.isValid() && !u.dead){
+                float d = u.dst(x, y);
+                if(d < MELEE_RANGE && d < bestD[0] && Angles.angleDist(rotation, angleTo(u)) < FRONT_CONE){
+                    bestD[0] = d;
+                    best[0] = u;
+                }
+            }
+        });
+        return best[0];
     }
 
     /** 盾牌脱落：播放脱落粒子并移除盾牌（预留给"物理效果"异常 TODO 触发） */
@@ -161,10 +190,10 @@ public class Vanguard extends MechUnit{
         super(name);
 
         // —— 基础属性：盾戳（T1，比 Raider 更硬更慢） ——
-        health = 420f;
+        health = 300f;
         speed = 0.5f;
         hitSize = 10f;
-        armor = 4f;
+        armor = 0f;
         drag = 0.4f;
         accel = 0.3f;
         rotateSpeed = 3.5f;
@@ -199,7 +228,7 @@ public class Vanguard extends MechUnit{
             rotate = false;            // 固定朝前：Mech 身体（baseRotation）朝敌人即命中
             controllable = false;
             autoTarget = true;         // 自动索敌戳刺
-            reload = 50f;              // 戳刺频率（帧）
+            reload = 120f;              // 戳刺频率（帧）
             shootCone = 45f;
             recoil = -5f;
             shake = 0.5f;
@@ -207,7 +236,7 @@ public class Vanguard extends MechUnit{
                 speed = 0f;
                 lifetime = 1f;
                 instantDisappear = true;   // 立即戳刺
-                splashDamage = 34f;        // 戳刺伤害
+                splashDamage = 24f;        // 戳刺伤害
                 splashDamageRadius = 20f;  // 单点戳（范围较小、集中）
                 collidesAir = false;       // 仅攻击地面目标
                 collidesGround = true;

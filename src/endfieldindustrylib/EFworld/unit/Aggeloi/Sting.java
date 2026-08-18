@@ -84,13 +84,13 @@ public class Sting extends AuroraUnit{
         weapons.add(new Weapon("endfield-industry-lib-sting-tail"){{
             mirror = false;            // 单个炮台，不镜像成对
             top = true;               // 绘制在主体之上
-            
+
             layerOffset = 0.02f;
             rotate = true;             // 独立旋转的炮台，可朝任意方向射击
             rotateSpeed = 6f;          // 炮塔旋转速度（较慢，默认 20）
             x = 0f; y = -6f;          // 位于尾部（负 y = 正后方）
             shootY = 8f;               // 炮口（毒针）长度
-            recoil = 2f;               // 开火后坐
+            recoil = -1f;               // 开火后坐
             shake = 1f;
             reload = 45f;              // 射击间隔（帧）
             shootCone = 30f;           // 瞄准锥形
