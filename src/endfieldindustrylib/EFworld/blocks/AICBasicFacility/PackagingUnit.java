@@ -1,6 +1,7 @@
 package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
 
 import endfieldindustrylib.EFcontents.EFitems;
+import arc.math.geom.Point2;
 import mindustry.type.*;
 
 public class PackagingUnit extends RectGenericAICBasicFacility {
@@ -13,8 +14,9 @@ public class PackagingUnit extends RectGenericAICBasicFacility {
         requirements(Category.crafting, ItemStack.with(EFitems.amethystPart, 20));
 
         rotate = true;
-        inputFacingMask = 1 << 2;
-        outputFacingMask = 1 << 0;
+        // 背面输入 / 正面输出（当前 4×6 矩形的偏移）
+        inputOffsets = new Point2[]{ new Point2(-2, -2), new Point2(-2, -1), new Point2(-2, 0), new Point2(-2, 1), new Point2(-2, 2), new Point2(-2, 3) };
+        outputOffsets = new Point2[]{ new Point2(3, -2), new Point2(3, -1), new Point2(3, 0), new Point2(3, 1), new Point2(3, 2), new Point2(3, 3) };
 
         inputSlotDefs = new SlotDef[]{ new SlotDef(null) , new SlotDef(null) };
         outputSlotDefs = new SlotDef[]{ new SlotDef(null) };

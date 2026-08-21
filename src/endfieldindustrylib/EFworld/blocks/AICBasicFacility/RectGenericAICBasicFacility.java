@@ -1,27 +1,27 @@
 package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
 
+import arc.Core;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Lines;
-import arc.Core;
+import arc.math.geom.Point2;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import mindustry.Vars;
+import static mindustry.Vars.tilesize;
+import static mindustry.Vars.world;
+import mindustry.content.Blocks;
+import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.gen.Sounds;
+import mindustry.graphics.Drawf;
 import mindustry.graphics.Pal;
 import mindustry.type.Item;
 import mindustry.type.Liquid;
 import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.meta.BuildVisibility;
-import mindustry.graphics.Drawf;
-import mindustry.Vars;
-import mindustry.content.Blocks;
-import mindustry.game.Team;
-
-import static mindustry.Vars.tilesize;
-import static mindustry.Vars.world;
 
 /**
  * 可自定义尺寸的矩形多块工厂。
@@ -184,6 +184,35 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
         rectChildBlock.load();
     }
 
+    /**
+     * 生成矩形机器“朝右”（旋转0）的输入偏移（背面/左侧），相对主方块位置。
+     * 注意：RectBuild 重写了 acceptItem/dumpOutputs，这些列表当前不被消费，仅为完整性填充。
+     */
+    public static Point2[] makeInputOffsets(int width, int height) {
+        int minX = -(width % 2 == 0 ? width / 2 - 1 : width / 2);
+        int minY = -(height % 2 == 0 ? height / 2 - 1 : height / 2);
+        int maxY = (height % 2 == 0 ? height / 2 : height / 2);
+        int count = maxY - minY + 1;
+        Point2[] result = new Point2[count];
+        for (int i = 0; i < count; i++) {
+            result[i] = new Point2(minX - 1, minY + i);
+        }
+        return result;
+    }
+
+    /** 生成矩形机器“朝右”（旋转0）的输出偏移（正面/右侧），相对主方块位置。 */
+    public static Point2[] makeOutputOffsets(int width, int height) {
+        int maxX = (width % 2 == 0 ? width / 2 : width / 2);
+        int minY = -(height % 2 == 0 ? height / 2 - 1 : height / 2);
+        int maxY = (height % 2 == 0 ? height / 2 : height / 2);
+        int count = maxY - minY + 1;
+        Point2[] result = new Point2[count];
+        for (int i = 0; i < count; i++) {
+            result[i] = new Point2(maxX + 1, minY + i);
+        }
+        return result;
+    }
+
     // -------------------------------------------------------------------------
     // 主方块构建类
     // -------------------------------------------------------------------------
@@ -285,58 +314,45 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             if (source == null || !isAllowedTransport(source))
                 return false;
 
+            // 如果之前已经接受过该来源，直接允许（可能用于连续传输）
             if (acceptList.contains(source))
                 return findAcceptableInputSlot(item) != -1;
 
-            int dx = 0, dy = 0;
-            switch (rotation) {
-                case 1:
-                    dy = -1;
-                    break; // 下
-                case 2:
-                    dx = 1;
-                    break; // 右
-                case 3:
-                    dy = 1;
-                    break; // 上
-                case 0:
-                    dx = -1;
-                    break; // 左
-            }
-
-            // 根据旋转计算当前宽度和高度
-            boolean rotated = rotation % 2 != 0;
-            int w = rotated ? rectHeight : rectWidth;
-            int h = rotated ? rectWidth : rectHeight;
-
-            int minX = tileX() - (w % 2 == 0 ? w / 2 -1 : w / 2);
-            int maxX = tileX() + (w % 2 == 0 ? w / 2  : w / 2);
-            int minY = tileY() - (h % 2 == 0 ? h / 2 -1 : h / 2);
-            int maxY = tileY() + (h % 2 == 0 ? h / 2  : h / 2);
-            System.out.println("minX: " + minX + ", maxX: " + maxX + ", minY: " + minY + ", maxY: " + maxY);
-
-            // 后方一排的坐标
-            int checkX = (dx <= 0) ? minX + dx : maxX + dx;
-            int checkY = (dy <= 0) ? minY + dy : maxY + dy;
-
-            if (rotation % 2 == 0) {
-                // 偶数旋转：遍历 Y 方向（竖直一排）
-                for (int y = minY; y <= maxY; y++) {
-                    if (source == Vars.world.tile(checkX, y).build) {
-                        acceptList.add(source);
-                        return findAcceptableInputSlot(item) != -1;
-                    }
-                }
-            } else {
-                // 奇数旋转：遍历 X 方向（水平一排）
-                for (int x = minX; x <= maxX; x++) {
-                    if (source == Vars.world.tile(x, checkY).build) {
-                        acceptList.add(source);
-                        return findAcceptableInputSlot(item) != -1;
-                    }
+            // 来源必须位于 caninputtile 中的某个格子
+            for (Point2 pos : caninputtile) {
+                Tile t = worldTileFor(pos);
+                if (t != null && source == t.build) {
+                    acceptList.add(source);
+                    return findAcceptableInputSlot(item) != -1;
                 }
             }
             return false;
+        }
+
+        /**
+         * 将“朝右”本地偏移（相对主方块）旋转到当前朝向，并换算为世界格子。
+         * 以矩形真实几何中心为旋转中心：偶数尺寸时中心位于半格（tileX+0.5, tileY+0.5），
+         * 旋转后再加回主方块坐标，可消除旋转后的半格偏差。
+         */
+        @Override
+        public Tile worldTileFor(Point2 local) {
+            int ox = local.x, oy = local.y;
+            // 旋转中心相对主方块的偏移（偶数尺寸为 +0.5 格，奇数尺寸为 0）
+            float cx = (rectWidth % 2 == 0) ? 0.5f : 0f;
+            float cy = (rectHeight % 2 == 0) ? 0.5f : 0f;
+            // 偏移相对旋转中心
+            float vx = ox - cx, vy = oy - cy;
+
+            float rx, ry;
+            switch (rotation) {
+                case 1 -> { rx = -vy; ry = vx; }  // 90°：朝下
+                case 2 -> { rx = -vx; ry = -vy; } // 180°：朝左
+                case 3 -> { rx = vy; ry = -vx; }  // 270°：朝上
+                // 默认 0°：朝右
+                default -> { rx = vx; ry = vy; }
+            }
+            // 世界坐标 = 旋转中心 + 旋转后的偏移（偶数尺寸时结果恰为整数格）
+            return Vars.world.tile(Math.round(tileX() + cx + rx), Math.round(tileY() + cy + ry));
         }
 
         @Override
@@ -344,91 +360,51 @@ public class RectGenericAICBasicFacility extends GenericAICBasicFacility {
             if (!timer(timerDump, dumpTime / timeScale))
                 return;
 
-            // 确保输出方向掩码非零（若父类未设置，此处强制允许所有方向）
-            if (outputFacingMask == 0) {
-                outputFacingMask = 0b1111; // 允许左、下、右、上
-            }
-
-            // 根据旋转计算实际尺寸和边界（与 createChildren 保持一致）
-            boolean rotated = rotation % 2 != 0;
-            int w = rotated ? rectHeight : rectWidth;
-            int h = rotated ? rectWidth : rectHeight;
-
-            int minX = tileX() - (w % 2 == 0 ? w / 2 - 1 : w / 2);
-            int maxX = tileX() + (w % 2 == 0 ? w / 2 : w / 2);
-            int minY = tileY() - (h % 2 == 0 ? h / 2 - 1 : h / 2);
-            int maxY = tileY() + (h % 2 == 0 ? h / 2 : h / 2);
-            System.out.println("dumpOutputs: minX=" + minX + ", maxX=" + maxX + ", minY=" + minY + ", maxY=" + maxY);
-
-            // 输出方向向量
-            int dx = 0, dy = 0;
-            switch (rotation) {
-                case 0: dx = 1; break; // 右
-                case 1: dy = 1; break; // 上
-                case 2: dx = -1; break; // 左
-                case 3: dy = -1; break; // 下
-            }
-
-            // 正确的输出排坐标（紧贴建筑外部）
-            int checkX = dx >= 0 ? maxX + dx : minX + dx;
-            int checkY = dy <= 0 ? minY + dy : maxY + dy;
-            System.out.println("dumpOutputs: checkX=" + checkX + ", checkY=" + checkY);
-
-            // 收集输出排上的所有同队建筑
-            Seq<Building> outputCandidates = new Seq<>();
-            if (rotation % 2 == 0) { // 纵向输出排（列）
-                for (int y = minY; y <= maxY; y++) {
-                    Tile t = world.tile(checkX, y);
-                    if (t != null && t.build != null && t.build.team == team) {
-                        outputCandidates.add(t.build);
-                    }
-                }
-            } else { // 横向输出排（行）
-                for (int x = minX; x <= maxX; x++) {
-                    Tile t = world.tile(x, checkY);
-                    if (t != null && t.build != null && t.build.team == team) {
-                        outputCandidates.add(t.build);
-                    }
-                }
-            }
-
-            // 调试：打印输出排信息
-            System.out.println("dumpOutputs: rotation=" + rotation + ", checkX=" + checkX + ", checkY=" + checkY);
-            System.out.println("outputCandidates size=" + outputCandidates.size); // 修正：size 是字段
-
-            if (outputCandidates.isEmpty()) return;
-
-            // 确保轮询索引数组长度正确
+            // 确保 lastOutputIndex 长度与当前输出槽一致（防止配置变更）
             if (lastOutputIndex.length != outputSlots.length) {
                 lastOutputIndex = new int[outputSlots.length];
             }
 
+            int n = canoutputtile.size();
+            if (n == 0)
+                return;
+
             for (int slotIdx = 0; slotIdx < outputSlots.length; slotIdx++) {
                 Slot slot = outputSlots[slotIdx];
-                if (slot.amount <= 0 || slot.currentItem == null) continue;
+                if (slot.amount <= 0 || slot.currentItem == null)
+                    continue;
                 Item item = slot.fixedType != null ? slot.fixedType : slot.currentItem;
 
-                int n = outputCandidates.size; // 修正：使用字段 size
-                int startIdx = lastOutputIndex[slotIdx] % n;
+                int startIdx = lastOutputIndex[slotIdx] % n; // 从上一次的位置开始
 
+                // 当前 tick 内尽可能输出该槽位的所有物品
                 while (slot.amount > 0) {
                     boolean found = false;
                     for (int i = 0; i < n; i++) {
                         int idx = (startIdx + i) % n;
-                        Building other = outputCandidates.get(idx);
-                        if (!isAllowedTransport(other)) continue;
-                        System.out.println("other: (x=" + other.tileX() + ", y=" + other.tileY() + "),acceptItem=" + other.acceptItem(this, item));
+                        Point2 pos = canoutputtile.get(idx);
+                        Tile t = worldTileFor(pos);
+                        if (t == null)
+                            continue;
+                        Building other = t.build;
+                        if (other == null || other.team != team)
+                            continue;
+
+                        if (!isAllowedTransport(other))
+                            continue;
 
                         if (other.acceptItem(this, item)) {
                             other.handleItem(this, item);
                             slot.remove(1);
+                            // 更新下次起始位置为当前建筑的下一个
                             lastOutputIndex[slotIdx] = (idx + 1) % n;
-                            startIdx = lastOutputIndex[slotIdx];
+                            startIdx = lastOutputIndex[slotIdx]; // 更新 startIdx 以便继续
                             found = true;
-                            break;
+                            break; // 输出成功，继续尝试下一个物品
                         }
                     }
-                    if (!found) break;
+                    if (!found)
+                        break; // 没有建筑可接受，退出循环
                 }
             }
         }

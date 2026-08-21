@@ -47,7 +47,7 @@ public class Powerline {
         int[] dy = { 0, 0, 1, -1 };
         int i = 0;
         boolean found = false;
-        while (!queue.isEmpty() && i < 10000) {
+        while (!queue.isEmpty() && i < 15000) {
             int[] cur = queue.poll();
             int cx = cur[0], cy = cur[1];
             i++;
@@ -116,7 +116,7 @@ public class Powerline {
             Lines.stroke(2f);
             for (int i = 0; i < lest.size() - 1; i++) {
                 Draw.z(100);
-                if (lest.size() <= 60) {
+                if (lest.size() <= 80) {
                     Draw.color(Color.yellow);
                 } else {
                     Draw.color(Color.red);

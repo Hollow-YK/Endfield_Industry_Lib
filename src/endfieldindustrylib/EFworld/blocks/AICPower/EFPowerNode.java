@@ -1,25 +1,26 @@
 package endfieldindustrylib.EFworld.blocks.AICPower;
 
-import static mindustry.Vars.tilesize;
 import java.util.ArrayList;
 import java.util.List;
-import arc.util.Time;
+
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.graphics.g2d.Lines;
 import arc.math.Mathf;
 import arc.math.geom.Point2;
-import arc.scene.ui.layout.Table;
 import arc.scene.ui.Label;
+import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
+import arc.util.Time;
+import endfieldindustrylib.EFworld.blocks.AICBasicFacility.RectGenericAICBasicFacility;
+import endfieldindustrylib.ui.Powerline;
 import mindustry.Vars;
+import static mindustry.Vars.tilesize;
+import mindustry.core.Renderer;
 import mindustry.game.Team;
 import mindustry.gen.Building;
 import mindustry.graphics.Drawf;
 import mindustry.world.blocks.power.PowerNode;
-import endfieldindustrylib.EFworld.blocks.AICBasicFacility.RectGenericAICBasicFacility;
-import endfieldindustrylib.ui.Powerline;
-import mindustry.core.Renderer;
 
 public class EFPowerNode extends PowerNode {
 
@@ -153,9 +154,13 @@ public class EFPowerNode extends PowerNode {
             if (label == null) return;
 
             if (lastDistance != -1) {
-                label.setText(lastDistance + "m");
+                if (lastDistance <= plLength)
+                    label.setText(lastDistance + "m");
+                else{
+                    label.setText(lastDistance + "m"+" 距离过长");
+                }
             } else {
-                label.setText("距离过长");
+                label.setText("不可到达");
             }
         }
 

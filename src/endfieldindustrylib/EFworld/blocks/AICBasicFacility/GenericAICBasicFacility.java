@@ -1,29 +1,37 @@
 package endfieldindustrylib.EFworld.blocks.AICBasicFacility;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import arc.Core;
 import arc.graphics.Color;
-import arc.math.*;
+import arc.math.Mathf;
+import arc.math.geom.Point2;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
-import arc.scene.ui.layout.*;
-import arc.struct.*;
-import arc.util.io.*;
-import mindustry.gen.*;
-import mindustry.type.*;
-import mindustry.world.blocks.production.GenericCrafter;
-import mindustry.world.meta.*;
-import mindustry.graphics.*;
-import mindustry.ui.*;
-import mindustry.Vars;
+import arc.scene.ui.layout.Table;
+import arc.struct.EnumSet;
+import arc.struct.IntSeq;
+import arc.util.io.Reads;
+import arc.util.io.Writes;
 import endfieldindustrylib.EFworld.blocks.AICTransport.BeltBridge;
 import endfieldindustrylib.EFworld.blocks.AICTransport.Converger;
 import endfieldindustrylib.EFworld.blocks.AICTransport.ItemControlPort;
 import endfieldindustrylib.EFworld.blocks.AICTransport.Splitter;
 import endfieldindustrylib.EFworld.blocks.AICTransport.TransportBelt;
 import endfieldindustrylib.ui.GridItemsDisplay;
-
-import java.util.ArrayList;
-import java.util.List;
+import mindustry.Vars;
+import mindustry.gen.Building;
+import mindustry.gen.Sounds;
+import mindustry.graphics.Pal;
+import mindustry.type.Item;
+import mindustry.type.ItemStack;
+import mindustry.ui.Bar;
+import mindustry.world.Tile;
+import mindustry.world.blocks.production.GenericCrafter;
+import mindustry.world.meta.BlockFlag;
+import mindustry.world.meta.Stat;
+import mindustry.world.meta.StatUnit;
 
 /**
  * 通用多槽位工厂基类。
@@ -40,12 +48,13 @@ import java.util.List;
  * - 电力消耗：默认5/s，无论是否工作，供电不足时停止生产并清空进度
  */
 public class GenericAICBasicFacility extends GenericCrafter {
-    public int inputFacingMask = 0b1111;
-    public int outputFacingMask = 0b1111;
     public SlotDef[] inputSlotDefs = {};
     public SlotDef[] outputSlotDefs = {};
     public Recipe[] recipes = {};
     public float powerUsage = 0.083345f;
+    /** 输入/输出格子的本地偏移（朝右坐标系，即旋转0时的偏移），构建时复制到 caninputtile/canoutputtile */
+    public Point2[] inputOffsets = {};
+    public Point2[] outputOffsets = {};
 
     public static class SlotDef {
         public Item item; // null 表示通用槽位
@@ -170,11 +179,14 @@ public class GenericAICBasicFacility extends GenericCrafter {
         return true;
     }
 
+
     public class GenericAICBasicFacilityBuild extends Building {
         public Slot[] inputSlots, outputSlots;
         public float progress, warmup;
         public Recipe currentRecipe;
         public int currentRecipeIndex = -1;
+        public List<Point2> canoutputtile = new ArrayList<>();
+        public List<Point2> caninputtile = new ArrayList<>();
 
         // 当前配方对应的槽位分配
         private int[] currentInputAssignment;
@@ -191,6 +203,11 @@ public class GenericAICBasicFacility extends GenericCrafter {
             for (int i = 0; i < outputSlotDefs.length; i++)
                 outputSlots[i] = new Slot(outputSlotDefs[i].item);
             lastOutputIndex = new int[outputSlotDefs.length];
+            // 将机器定义的输入/输出偏移复制到格子列表
+            for (Point2 p : inputOffsets)
+                caninputtile.add(new Point2(p.x, p.y));
+            for (Point2 p : outputOffsets)
+                canoutputtile.add(new Point2(p.x, p.y));
         }
 
         public class Slot {
@@ -382,12 +399,12 @@ public class GenericAICBasicFacility extends GenericCrafter {
             return slot.amount + amount <= slot.maxAmount;
         }
 
-        public boolean canUseRecipe(Recipe recipe) {
+        /*public boolean canUseRecipe(Recipe recipe) {
             // 此方法已废弃，但为兼容保留，直接调用分配检查
             int[] dummyInput = new int[recipe.input.length];
             int[] dummyOutput = new int[recipe.output.length];
             return tryAssignInputs(recipe.input, dummyInput) && tryAssignOutputs(recipe.output, dummyOutput);
-        }
+        }*/
 
         public void craft() {
             if (currentRecipe == null)
@@ -412,8 +429,8 @@ public class GenericAICBasicFacility extends GenericCrafter {
         }
 
         /**
-         * 公平轮询输出：每个输出槽在计时器允许时，尽可能将槽内物品分发给相邻可接受建筑。
-         * 使用 lastOutputIndex 记录每个槽上次输出的建筑索引，实现轮询公平性。
+         * 公平轮询输出：每个输出槽在计时器允许时，尽可能将槽内物品输出到 canoutputtile 中的建筑。
+         * 使用 lastOutputIndex 记录每个槽上次输出的位置索引，实现轮询公平性。
          */
         public void dumpOutputs() {
             if (!timer(timerDump, dumpTime / timeScale))
@@ -424,9 +441,7 @@ public class GenericAICBasicFacility extends GenericCrafter {
                 lastOutputIndex = new int[outputSlots.length];
             }
 
-            // 获取相邻建筑列表并转为数组（便于按索引访问）
-            Building[] neighbors = proximity.toArray(Building.class);
-            int n = neighbors.length;
+            int n = canoutputtile.size();
             if (n == 0)
                 return;
 
@@ -443,14 +458,12 @@ public class GenericAICBasicFacility extends GenericCrafter {
                     boolean found = false;
                     for (int i = 0; i < n; i++) {
                         int idx = (startIdx + i) % n;
-                        Building other = neighbors[idx];
-                        if (other == null || other.team != team)
+                        Point2 pos = canoutputtile.get(idx);
+                        Tile t = worldTileFor(pos);
+                        if (t == null)
                             continue;
-
-                        // 方向检查（相对于建筑朝向）
-                        int worldDir = relativeTo(other);
-                        int localDir = (worldDir - rotation + 4) % 4;
-                        if ((outputFacingMask & (1 << localDir)) == 0)
+                        Building other = t.build;
+                        if (other == null || other.team != team)
                             continue;
 
                         if (!isAllowedTransport(other))
@@ -470,6 +483,26 @@ public class GenericAICBasicFacility extends GenericCrafter {
                         break; // 没有建筑可接受，退出循环
                 }
             }
+        }
+
+        /**
+         * 将“朝右”本地偏移（以建筑中心参考格为原点）旋转到当前朝向，并换算为世界格子。
+         * 中心参考格：奇数尺寸建筑取锚点（即中心格）；偶数尺寸建筑取右下格
+         * （tileX + size/2, tileY + size/2），避免旋转中心偏移半格。
+         */
+        public Tile worldTileFor(Point2 local) {
+            // 偶数尺寸建筑的中心参考格在右下格
+            int cx = tileX() + (size % 2 == 0 ? size / 2 : 0);
+            int cy = tileY() + (size % 2 == 0 ? size / 2 : 0);
+
+            int rx = local.x, ry = local.y;
+            switch (rotation) {
+                case 1 -> { rx = -local.y; ry = local.x; }  // 90°：朝下
+                case 2 -> { rx = -local.x; ry = -local.y; } // 180°：朝左
+                case 3 -> { rx = local.y; ry = -local.x; }  // 270°：朝上
+                // 默认 0°：朝右，保持原始偏移
+            }
+            return Vars.world.tile(cx + rx, cy + ry);
         }
 
         public int findAcceptableInputSlot(Item item) {
@@ -522,52 +555,15 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
         @Override
         public boolean acceptItem(Building source, Item item) {
-            if (source == null || !isAllowedTransport(source))
-                return false;
-
+            if (source == null || !isAllowedTransport(source)) return false;
             // 如果之前已经接受过该来源，直接允许（可能用于连续传输）
             if (acceptList.contains(source))
                 return findAcceptableInputSlot(item) != -1;
-            int dx = 0, dy = 0;
-            // 计算后方相邻格子的偏移
-            switch (rotation) {
-                case 1:
-                    dy = -1;
-                    break; // 下
-                case 2:
-                    dx = 1;
-                    break; // 右
-                case 3:
-                    dy = 1;
-                    break; // 上
-                case 0:
-                    dx = -1;
-                    break; // 左
-            }
-
-            // 检查 source 是否位于方块后方紧邻的一排（宽度等于方块大小）
-            // 方块占据的格子范围（以 tileX, tileY 为中心）
-            int half = size / 2;
-            int minX = tileX() - half;
-            int maxX = tileX() + (size % 2 == 0 ? half - 1 : half);
-            int minY = tileY() - half;
-            int maxY = tileY() + (size % 2 == 0 ? half - 1 : half);
-
-            int checkX = (dx <= 0) ? minX + dx : maxX + dx;
-            int checkY = (dy <= 0) ? minY + dy : maxY + dy;
-            if (rotation % 2 == 0) {
-                for (int y = minY; y <= maxY; y++) {
-                    if (source == Vars.world.tile(checkX, y).build) {
-                        acceptList.add(source);
-                        return findAcceptableInputSlot(item) != -1;
-                    }
-                }
-            } else {
-                for (int x = minX; x <= maxX; x++) {
-                    if (source == Vars.world.tile(x, checkY).build) {
-                        acceptList.add(source);
-                        return findAcceptableInputSlot(item) != -1;
-                    }
+            for (Point2 pos : caninputtile) {
+                Tile t = worldTileFor(pos);
+                if (t != null && source == t.build) {
+                    acceptList.add(source);
+                    return findAcceptableInputSlot(item) != -1;
                 }
             }
             return false;
@@ -637,11 +633,6 @@ public class GenericAICBasicFacility extends GenericCrafter {
 
             // 将面板添加到外部 table 并使其填充整个可用区域
             table.add(panel).grow();
-        }
-
-        @Override
-        public boolean shouldConsume() {
-            return currentRecipe != null && canUseRecipe(currentRecipe);
         }
 
         @Override
