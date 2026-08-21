@@ -1,23 +1,27 @@
 package endfieldindustrylib.EFworld.blocks.AICDepotAccess;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import arc.Core;
 import arc.graphics.Color;
+import arc.math.geom.Point2;
 import arc.scene.style.TextureRegionDrawable;
-import arc.scene.ui.*;
-import arc.scene.ui.layout.*;
+import arc.scene.ui.TextButton;
+import arc.scene.ui.layout.Table;
 import arc.util.io.Reads;
 import arc.util.io.Writes;
+import endfieldindustrylib.EFcontents.EFitems;
+import endfieldindustrylib.ui.GridItemsDisplay;
 import mindustry.Vars;
 import mindustry.gen.Building;
+import mindustry.type.Category;
 import mindustry.type.Item;
 import mindustry.type.ItemStack;
-import mindustry.type.Category;
 import mindustry.ui.Styles;
 import mindustry.world.Block;
+import mindustry.world.Tile;
 import mindustry.world.meta.BlockGroup;
-import endfieldindustrylib.EFcontents.EFitems;
-import endfieldindustrylib.EFworld.blocks.AICTransport.*;
-import endfieldindustrylib.ui.GridItemsDisplay;
 
 /**
  * 协议储存箱 (Protocol Stash)
@@ -26,6 +30,9 @@ import endfieldindustrylib.ui.GridItemsDisplay;
  */
 public class ProtocolStash extends Block {
     float powerUsage = 0.5f;
+    /** 【复刻自 GenericAICBasicFacility】输入/输出格子的本地偏移（朝右坐标系，即旋转0时的偏移），构建时复制到 caninputtile/canoutputtile */
+    public Point2[] inputOffsets = {};
+    public Point2[] outputOffsets = {};
 
     public ProtocolStash(String name) {
         super(name);
@@ -36,6 +43,8 @@ public class ProtocolStash extends Block {
         configurable = true;
         rotate = true;
         size = 3;
+        inputOffsets = new Point2[]{ new Point2(-2, -1), new Point2(-2, 0), new Point2(-2, 1) };  // 背面输入
+        outputOffsets = new Point2[]{ new Point2(2, -1), new Point2(2, 0), new Point2(2, 1) };    // 正面输出
         itemCapacity = 6 * 50; // 总容量 300，但实际由槽位管理
         group = BlockGroup.transportation;
         requirements(Category.distribution, ItemStack.with(EFitems.origocrust, 20));
@@ -87,6 +96,10 @@ public class ProtocolStash extends Block {
         private float coreTimer = 0f; // 向核心传输计时器
         private static final float CORE_TRANSMIT_TIME = 360f; // 6秒 (60 ticks * 6)
 
+        // 【复刻自 GenericAICBasicFacility】输入/输出连接格（本地偏移，随朝向旋转）
+        public List<Point2> caninputtile = new ArrayList<>();
+        public List<Point2> canoutputtile = new ArrayList<>();
+
         // 轮询输出索引（用于公平输出）
         private int lastOutputIndex = 0;
 
@@ -94,15 +107,36 @@ public class ProtocolStash extends Block {
             for (int i = 0; i < slots.length; i++) {
                 slots[i] = new Slot();
             }
+            // 【复刻自 GenericAICBasicFacility】将方块定义的偏移复制为连接格列表
+            for (Point2 p : inputOffsets)
+                caninputtile.add(new Point2(p.x, p.y));
+            for (Point2 p : outputOffsets)
+                canoutputtile.add(new Point2(p.x, p.y));
         }
 
         /** 检查相邻建筑是否为允许交互的自定义物流方块 */
         public boolean isAllowedTransport(Building other) {
-            return other instanceof TransportBelt.TransportBeltBuild ||
-                    other instanceof ItemControlPort.ItemControlPortBuild ||
-                    other instanceof Splitter.SplitterBuild ||
-                    other instanceof BeltBridge.BeltBridgeBuild ||
-                    other instanceof Converger.ConvergerBuild;
+            // return other instanceof TransportBelt.TransportBeltBuild ||
+            //         other instanceof ItemControlPort.ItemControlPortBuild ||
+            //         other instanceof Splitter.SplitterBuild ||
+            //         other instanceof BeltBridge.BeltBridgeBuild ||
+            //         other instanceof Converger.ConvergerBuild;
+            return true;
+        }
+
+        /**
+         * 【复刻自 GenericAICBasicFacility】将"朝右"本地偏移旋转到当前朝向，并换算为世界格子。
+         * 3×3 奇数尺寸建筑：中心参考格即锚点（tileX, tileY），无半格偏移。
+         */
+        public Tile worldTileFor(Point2 local) {
+            int rx = local.x, ry = local.y;
+            switch (rotation) {
+                case 1 -> { rx = -local.y; ry = local.x; }  // 90°：朝下
+                case 2 -> { rx = -local.x; ry = -local.y; } // 180°：朝左
+                case 3 -> { rx = local.y; ry = -local.x; }  // 270°：朝上
+                // 默认 0°：朝右，保持原始偏移
+            }
+            return Vars.world.tile(tileX() + rx, tileY() + ry);
         }
 
         @Override
@@ -146,27 +180,20 @@ public class ProtocolStash extends Block {
 
         /** 向输出面（前方）输出物品 */
         public void dumpOutputs() {
-            // 收集前方一排的建筑（最多3个）
-            Building[] frontBuildings = new Building[3];
-            int frontCount = 0;
+            // 【复刻自 GenericAICBasicFacility】通过 canoutputtile + worldTileFor 识别输出连接格
+            int n = canoutputtile.size();
+            if (n == 0)
+                return;
 
-            if (rotation % 2 == 0) { // 水平方向：左(0)或右(2)
-                int baseX = tileX() + 2 * (1 - rotation);
-                for (int i = -1; i <= 1; i++) {
-                    int y = tileY() + i;
-                    Building b = Vars.world.tile(baseX, y) == null ? null : Vars.world.tile(baseX, y).build;
-                    if (b != null && b.team == team && isAllowedTransport(b)) {
-                        frontBuildings[frontCount++] = b;
-                    }
-                }
-            } else { // 垂直方向：下(1)或上(3)
-                int baseY = tileY() + 2 * (2 - rotation);
-                for (int i = -1; i <= 1; i++) {
-                    int x = tileX() + i;
-                    Building b = Vars.world.tile(x, baseY) == null ? null : Vars.world.tile(x, baseY).build;
-                    if (b != null && b.team == team && isAllowedTransport(b)) {
-                        frontBuildings[frontCount++] = b;
-                    }
+            Building[] frontBuildings = new Building[n];
+            int frontCount = 0;
+            for (Point2 pos : canoutputtile) {
+                Tile t = worldTileFor(pos);
+                if (t == null)
+                    continue;
+                Building b = t.build;
+                if (b != null && b.team == team && isAllowedTransport(b)) {
+                    frontBuildings[frontCount++] = b;
                 }
             }
 
@@ -241,13 +268,13 @@ public class ProtocolStash extends Block {
             if (source == null || !isAllowedTransport(source))
                 return false;
 
-            // 检查方向：必须来自建筑后方
-            int worldDir = relativeTo(source);
-            int inputDir = (rotation + 2) % 4; // 后方
-            if (worldDir != inputDir)
-                return false;
-
-            return findAcceptableInputSlot(item) != -1;
+            // 【复刻自 GenericAICBasicFacility】来源必须位于 caninputtile 中的某个格子（输入连接识别）
+            for (Point2 pos : caninputtile) {
+                Tile t = worldTileFor(pos);
+                if (t != null && source == t.build)
+                    return findAcceptableInputSlot(item) != -1;
+            }
+            return false;
         }
 
         // ========== UI 配置面板 ==========
